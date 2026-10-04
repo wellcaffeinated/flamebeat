@@ -49,10 +49,12 @@ justfile             common tasks: fetch, analyze, serve
 ```json
 {
   "version": 1,
-  "track": {"file": "...", "duration": 183.2, "sr": 22050},
+  "track": {"file": "...", "duration": 183.2, "sr": 22050, "tempo": 100.2},
   "rate": 100,
   "continuous": {
     "volume":   [...],                                  // momentary LUFS mapped to 0..1, plus raw dB in "volume_db"
+    "volume_db": [...], "rms_db": [...],                // raw momentary LUFS, 50 ms RMS dBFS
+    "drums":    {"kick": [...], "snare": [...], "hat": [...]},   // percussive band-flux envelopes 0..1
     "energy":   {"sub": [...], "bass": [...], "mid": [...], "high": [...], "flux": [...], "intensity": [...]},
     "chroma":   [[12 floats], ...],
     "pitch":    {"bass": {"f0": [...], "conf": [...]}}
@@ -67,7 +69,8 @@ justfile             common tasks: fetch, analyze, serve
 ```
 
 All continuous arrays share `rate` (frames per second). Normalise each stream to
-0..1 per track (keep raw values alongside where useful). Round floats to about
+0..1 per track (keep raw values alongside where useful). Unvoiced bass f0 frames are `0`.
+Round floats to about
 4 significant digits to keep the file small. Bump `version` if the shape changes.
 
 ---
@@ -93,26 +96,26 @@ All continuous arrays share `rate` (frames per second). Normalise each stream to
 
 ## Phase 2: Analysis pipeline (Python, full mix only, no stem separation)
 Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
-- [ ] Load audio (mono, 22050 Hz). Hop ≈ 10 ms → `rate` 100.
-- [ ] **Volume:** momentary loudness (K-weighted, 400 ms window) via
+- [x] Load audio (mono, 22050 Hz). Hop ≈ 10 ms → `rate` 100.
+- [x] **Volume:** momentary loudness (K-weighted, 400 ms window) via
       pyloudnorm's filters or an equivalent, plus RMS dB. Normalise to 0..1.
-- [ ] **Energy:** band energies (sub <60, bass 60–250, mid 250–2k, high >2k Hz),
+- [x] **Energy:** band energies (sub <60, bass 60–250, mid 250–2k, high >2k Hz),
       spectral flux, and a combined `intensity` (flux + onset density + band
       energy, smoothed). Normalise per track.
-- [ ] **Transients:** HPSS → onset detection on the percussive part; per-band
+- [x] **Transients:** HPSS → onset detection on the percussive part; per-band
       onset envelopes → classify kick (low), snare (mid + broadband), hat
       (high). Adaptive thresholds. Also a generic `onsets` list.
-- [ ] **Pitch:** `chroma_cqt` on the harmonic part; bass f0 via `pyin` on a
+- [x] **Pitch:** `chroma_cqt` on the harmonic part; bass f0 via `pyin` on a
       40–250 Hz low-passed signal, with confidence (voiced probability);
       note events via basic-pitch. If basic-pitch can't be installed after a
       reasonable attempt, log why, leave `notes` empty and move on.
-- [ ] **Beats:** `librosa.beat.beat_track`; mark every 4th beat as a downbeat
+- [x] **Beats:** `librosa.beat.beat_track`; mark every 4th beat as a downbeat
       as a first approximation (log that it's approximate).
-- [ ] `analyze.py <audio> -o <timeline.json>` CLI
-- [ ] `plot.py <timeline.json>` → PNG with every stream and event over time,
+- [x] `analyze.py <audio> -o <timeline.json>` CLI
+- [x] `plot.py <timeline.json>` → PNG with every stream and event over time,
       for checking by eye. Look at it on the test track and tune thresholds
       until kicks/snares/hats line up plausibly. Record the chosen values in the log.
-- [ ] commit after each feature, not just at the end
+- [x] commit after each feature, not just at the end
 
 ## Phase 3: WebGPU flame renderer (no audio yet)
 - [ ] Feature-detect WebGPU; show a clear message if it's unavailable.
@@ -188,3 +191,38 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   file page instead (CC BY 3.0, attribution required). The fetch script
   downloads from Commons (falls back to the identical Incompetech file) and
   checks the SHA-1.
+- 2026-10-04: Phase 2 done; analysis of the 3:21 test track takes ~35 s
+  (pYIN ~11 s, basic-pitch ~4 s, HPSS ~13 s), JSON is 3.8 MB (chroma is
+  ~40 % of it). Additive schema keys (still v1): `continuous.volume_db`,
+  `continuous.rms_db`, `continuous.drums.{kick,snare,hat}` (percussive
+  envelopes, useful for continuous visuals), `track.tempo`.
+  - Grid: STFT hop 220 @ 22050 Hz (100.23 fps) resampled by interpolation to
+    an exact 100 fps grid; bass f0 uses nearest-neighbour so it never
+    interpolates across voiced/unvoiced gaps.
+  - Volume: pyloudnorm K-weighting filters + 400 ms mean-square window;
+    normalised with floor -60 LUFS, p1..p99.5. The track is compressed, so
+    volume sits ~0.85-1 in the groove and ~0.5 in the breakdown.
+  - Energy bands: dB, normalised to the top 30 dB (p2..p99.5). Intensity =
+    0.4 * flux(0.5 s smooth) + 0.25 * onset density(2 s) + 0.35 * mean(bass,
+    mid, high), smoothed 0.75 s. It clearly shows intro / groove / breakdown.
+  - Drums, first pass (independent per-band peak picking, kick 30-150 Hz,
+    snare 150-5000 Hz) was bad: 951 kicks / 912 snares for 328 beats, because
+    kick leakage dominates 150-5000 Hz and hats were suppressed as "snare
+    noise". A scatter of per-onset band features showed clusters, so it is now
+    candidate + classify on the HPSS percussive part (log1p(100*P) flux):
+    candidates = peaks of kick+snare+hat env above median(1 s) + 1.5*MAD,
+    floor 0.25, gap 60 ms; kick if 30-120 Hz env >= 0.45; snare if 1-4 kHz
+    env >= 0.65 AND 7-11 kHz env >= 0.45 (broadband); hats picked on their own
+    envelope (median + 2*MAD, floor 0.15, gap 50 ms), rejected if 1-4 kHz
+    >= 0.5 or within 30 ms of a snare. Result: 523 kick / 344 snare / 613 hat.
+    Bar-position histogram: snares peak on 16ths 4 and 12 (beats 2 and 4),
+    hats on off-beat 16ths, kicks syncopated on 0/10/13. Looks plausible by eye
+    on the zoom plot; not checked against a hand-labelled ground truth.
+  - Beats: librosa 100.2 BPM (catalogue says 101). Beats sat ~41 ms after the
+    percussive onsets, so the grid is shifted by the median beat->onset offset.
+    Downbeats are **approximate**: every 4th beat, phase = the one with most
+    kick energy (phase 2 here); assumes 4/4 and no tempo/metre changes.
+  - Pitch: chroma_cqt on the HPSS-harmonic signal (gated by harmonic RMS);
+    pYIN 40-250 Hz on a 250 Hz low-passed, 11025 Hz copy. basic-pitch works
+    (tflite): 1642 notes. Bass f0 ~110 Hz, chroma A and basic-pitch MIDI 45
+    agree at 66.6-67.5 s. pYIN also tracks 808-kick pitch sweeps (low conf).
