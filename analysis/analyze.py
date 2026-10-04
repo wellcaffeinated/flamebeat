@@ -15,6 +15,7 @@ import numpy as np
 from features.beats import beats
 from features.common import RATE, SR, load
 from features.energy import energy
+from features.pitch import bass_f0, chroma, notes
 from features.transients import transients
 from features.volume import volume
 
@@ -68,14 +69,29 @@ def main(argv=None) -> int:
     en = energy(a, onset_times=np.array([o["t"] for o in tr["onsets"]]))
     en.pop("_raw_db")
 
+    step("chroma")
+    ch = chroma(a)
+
+    step("bass f0 (pyin)")
+    bf = bass_f0(a)
+
+    note_events, note_err = [], "skipped (--no-notes)"
+    if not args.no_notes:
+        step("notes (basic-pitch)")
+        note_events, note_err = notes(a)
+        if note_err:
+            step(f"  {note_err}")
+
     continuous = {
         "volume": vol["volume"],
         "volume_db": vol["volume_db"],
         "rms_db": vol["rms_db"],
         "energy": en,
         "drums": tr["env"],              # per-band percussive onset envelopes, 0..1
+        "chroma": ch,
+        "pitch": {"bass": bf},
     }
-    events: dict = {"drums": tr["drums"], "onsets": tr["onsets"], "notes": [], "beats": bt["beats"]}
+    events: dict = {"drums": tr["drums"], "onsets": tr["onsets"], "notes": note_events, "beats": bt["beats"]}
 
     timeline = {
         "version": 1,
