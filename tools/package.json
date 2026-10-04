@@ -1,0 +1,9 @@
+{
+  "name": "flamebeat-tools",
+  "private": true,
+  "type": "module",
+  "description": "Dev-only tooling (headless screenshots). The web app itself has no build step.",
+  "dependencies": {
+    "playwright-core": "1.63.0"
+  }
+}
