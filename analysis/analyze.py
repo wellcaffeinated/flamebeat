@@ -13,6 +13,7 @@ import time
 import numpy as np
 
 from features.common import RATE, SR, load
+from features.energy import energy
 from features.volume import volume
 
 
@@ -51,10 +52,15 @@ def main(argv=None) -> int:
     step("volume")
     vol = volume(a)
 
+    step("energy")
+    en = energy(a, onset_times=None)
+    en.pop("_raw_db")
+
     continuous = {
         "volume": vol["volume"],
         "volume_db": vol["volume_db"],
         "rms_db": vol["rms_db"],
+        "energy": en,
     }
     events: dict = {"drums": [], "onsets": [], "notes": [], "beats": []}
 
