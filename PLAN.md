@@ -118,25 +118,25 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
 - [x] commit after each feature, not just at the end
 
 ## Phase 3: WebGPU flame renderer (no audio yet)
-- [ ] Feature-detect WebGPU; show a clear message if it's unavailable.
-- [ ] Flame params: transforms (weight, color, affine[6], variations map),
+- [x] Feature-detect WebGPU; show a clear message if it's unavailable.
+- [x] Flame params: transforms (weight, color, affine[6], variations map),
       optional final transform, camera, palette (gradient → 256-entry texture),
       brightness, gamma, vibrancy.
-- [ ] Variations: linear, sinusoidal, spherical, swirl, horseshoe, polar,
+- [x] Variations: linear, sinusoidal, spherical, swirl, horseshoe, polar,
       heart, disc, spiral, julia (Draves & Reckase formulas).
-- [ ] **Compute pass:** many parallel chains (e.g. 64k), each with a persistent
+- [x] **Compute pass:** many parallel chains (e.g. 64k), each with a persistent
       point (storage buffer) and a PCG random state. N iterations per frame.
       Transform chosen by a cumulative weight table. Histogram as `atomic<u32>`
       fixed point: density + R, G, B (WebGPU has no float atomics).
-- [ ] **Temporal decay:** a pass that scales the histogram by `decay` (≈0.85–0.95)
+- [x] **Temporal decay:** a pass that scales the histogram by `decay` (≈0.85–0.95)
       each frame instead of clearing it. Watch for fixed-point underflow/overflow.
-- [ ] **Tone-map pass:** log-density, gamma, vibrancy, background, drawn as a
+- [x] **Tone-map pass:** log-density, gamma, vibrancy, background, drawn as a
       full-screen triangle.
-- [ ] Uniforms update every frame (params will change every frame later).
-- [ ] FPS + iterations/s overlay. Target 60 fps at 1080p on a decent GPU, with
+- [x] Uniforms update every frame (params will change every frame later).
+- [x] FPS + iterations/s overlay. (60 fps target UNVERIFIED: no GPU here) Target 60 fps at 1080p on a decent GPU, with
       adjustable iterations per frame.
-- [ ] 2–3 good-looking presets.
-- [ ] commit at each working step
+- [x] 2–3 good-looking presets.
+- [x] commit at each working step
 
 ## Phase 4: Track sync + mapping
 - [ ] `<audio>` element + file picker; the matching timeline JSON is loaded by
@@ -226,3 +226,19 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
     pYIN 40-250 Hz on a 250 Hz low-passed, 11025 Hz copy. basic-pitch works
     (tflite): 1642 notes. Bass f0 ~110 Hz, chroma A and basic-pitch MIDI 45
     agree at 66.6-67.5 s. pYIN also tracks 808-kick pitch sweeps (low conf).
+- 2026-10-04: Phase 3. WebGPU **does** run in headless Chromium here:
+  `chromium-1234` (and the headless shell) with `--enable-unsafe-webgpu
+  --enable-features=Vulkan --use-angle=swiftshader
+  --use-webgpu-adapter=swiftshader` gives a `google/swiftshader` adapter, but
+  only on a secure-context URL (http://localhost), not about:blank. Page
+  screenshots and `canvas.toDataURL()` of the WebGPU canvas come back
+  blank/transparent, so verification uses `window.__grab()`: tone-map into an
+  offscreen rgba8 texture, copy to a buffer, map it (`tools/grab.mjs`).
+  Renderer: 64k chains x 16 iters/frame default, 4 x atomic<u32> per pixel,
+  DENS_ONE = 256 / COLOR_ONE = 255 fixed point, decay pass clamps to 2^31
+  before scaling so it can't wrap. Tone map is flam3-style with
+  k2 = pixels / (hits held in histogram) * 4 and an extra 0.1 on k1 (first
+  try without it saturated everything to white). Cameras are auto-framed by
+  a CPU chaos game (2-98 percentile box). Three presets render as expected
+  in SwiftShader (docs/presets-headless.png). SwiftShader speed: ~12 fps /
+  1.5 M iter/s at 960x540 with 16k chains x 8; real-GPU fps not measured.

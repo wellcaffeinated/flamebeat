@@ -1,7 +1,7 @@
 // flamebeat entry point.
 import { createRenderer, WebGPUUnavailable } from './renderer/renderer.js';
 import { presets } from './presets.js';
-import { clone } from './flame.js';
+import { clone, autoFrame } from './flame.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? Number(q.get(k)) : d);
@@ -39,7 +39,12 @@ try {
   throw e;
 }
 
-let flame = clone(presets[state.presetIndex]);
+function loadPreset(i) {
+  const f = clone(presets[i]);
+  if (f.camera === 'auto' || f.camera == null) f.camera = autoFrame(f, canvas.clientWidth / canvas.clientHeight);
+  return f;
+}
+let flame = loadPreset(state.presetIndex);
 
 function draw() {
   return renderer.render(flame, {
@@ -79,6 +84,6 @@ window.__renderer = renderer;
 window.addEventListener('keydown', (e) => {
   if (e.key === 'p' || e.key === 'P') {
     state.presetIndex = (state.presetIndex + 1) % presets.length;
-    flame = clone(presets[state.presetIndex]);
+    flame = loadPreset(state.presetIndex);
   }
 });
