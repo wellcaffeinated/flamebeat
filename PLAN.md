@@ -160,16 +160,16 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
 - [x] commit
 
 ## Phase 5: Polish & verification
-- [ ] Keyboard: space play/pause, ←/→ seek, P next preset, D debug.
-- [ ] Try headless verification: Chromium headless shell exists under
+- [x] Keyboard: space play/pause, ←/→ seek, P next preset, D debug.
+- [x] Try headless verification: Chromium headless shell exists under
       `~/.cache/ms-playwright/` (playwright-core available via npx). Try
       flags such as `--enable-unsafe-webgpu --enable-features=Vulkan
       --use-angle=swiftshader` / `--use-webgpu-adapter=swiftshader` to grab
       screenshots at a few timestamps. If WebGPU can't run headless here,
       say so in the log and README. Don't fake it.
-- [ ] README: quickstart, how mapping works, how to add a track, known limits.
-- [ ] Final log entry summarising what works, what's unverified and what's next.
-- [ ] commit
+- [x] README: quickstart, how mapping works, how to add a track, known limits.
+- [x] Final log entry summarising what works, what's unverified and what's next.
+- [x] commit
 
 ---
 
@@ -267,3 +267,23 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
     different palette/shape (docs/timeline-snapshots-headless.png).
     Not verified: how it *feels* with sound on a real GPU (no audio output
     or GPU here), and whether 30 ms lookahead is right for real output latency.
+- 2026-10-04: Phase 5 / session summary.
+  - Added: keyboard (space, arrows +-5 s / shift 30 s, P, D, [ ] iterations,
+    H hide UI); camera follow (re-frames the *modulated* flame every 0.5 s
+    on the CPU and eases toward it, tau 1.5 s; without it preset 2 drifted
+    out of frame); `just test` (node checks, 12 pass) and `just verify`
+    (headless end-to-end + `tools/keys.mjs`); README.
+  - **Works and verified here:** analysis pipeline end to end via
+    `just analyze` (~33 s); diagnostic plots inspected and detectors tuned;
+    WebGPU flame renders in headless Chromium via SwiftShader (snapshots in
+    docs/); timeline loads, mapping changes the flame across the track;
+    playback, pause, seek, arrow keys, 1.5x rate, P/D/H/] keys; no page
+    errors.
+  - **Unverified:** real-GPU performance (60 fps @ 1080p target), visual
+    quality at full chain count on real hardware, perceived audio-visual
+    sync with actual sound output (no GPU or speakers in the container),
+    other browsers (only Chromium 1234 tested), drum accuracy vs ground truth.
+  - Next: try on a real GPU and tune chains/iters + lookahead by ear; more
+    presets and per-preset `mod` routing; smaller timeline (quantised chroma
+    or a binary format); downbeat detection beyond the 4-beat heuristic;
+    preset morphing on section changes (intensity jumps).
