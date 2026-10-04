@@ -81,15 +81,15 @@ All continuous arrays share `rate` (frames per second). Normalise each stream to
 - [x] commit
 
 ## Phase 1: Test track
-- [ ] Find a **free-to-use** track with a clear beat (drums, bass, some melody),
+- [x] Find a **free-to-use** track with a clear beat (drums, bass, some melody),
       2–4 min long. Acceptable licenses: CC0, CC-BY (with attribution), or an
       equivalent explicit free-use license. Candidate sources: Incompetech
       (Kevin MacLeod, CC-BY 4.0), Free Music Archive (CC-filtered),
       Wikimedia Commons, ccMixter. Verify the license on the track's own page.
-- [ ] `scripts/fetch-test-track.sh` downloads it to `assets/audio/` (curl;
+- [x] `scripts/fetch-test-track.sh` downloads it to `assets/audio/` (curl;
       `yt-dlp` is available but prefer direct downloads)
-- [ ] `assets/ATTRIBUTION.md`: title, artist, source URL, license, license URL
-- [ ] commit
+- [x] `assets/ATTRIBUTION.md`: title, artist, source URL, license, license URL
+- [x] commit
 
 ## Phase 2: Analysis pipeline (Python, full mix only, no stem separation)
 Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
@@ -181,3 +181,10 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   resampy (basic-pitch dep) imports `pkg_resources`, so `setuptools<81`.
   basic-pitch imports and loads its tflite model OK. Generated timelines go to
   `web/timelines/` (gitignored), diagnostic PNGs to `analysis/out/`.
+- 2026-10-04: Phase 1. Test track: "Funkorama" by Kevin MacLeod, 3:21,
+  ~101 BPM, electronic drum kit + bass + organ/synth, **CC BY 3.0**. The
+  Incompetech per-track page is JS-rendered and did not show the license
+  version when fetched, so the license was verified on the Wikimedia Commons
+  file page instead (CC BY 3.0, attribution required). The fetch script
+  downloads from Commons (falls back to the identical Incompetech file) and
+  checks the SHA-1.
