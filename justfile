@@ -19,3 +19,16 @@ analyze-all:
 # serve the repo root (web/ + assets/audio/) at http://localhost:8000/web/ (with HTTP Range, for seeking)
 serve port="8000":
     cd analysis && uv run python ../scripts/serve.py {{port}}
+
+# install dev-only node tooling (playwright-core) for the headless checks
+tools-install:
+    cd tools && npm install --no-audit --no-fund
+
+# node unit checks of timeline sampling + mapping against a generated timeline
+test track="Funkorama":
+    cd tools && node test-sync.mjs ../web/timelines/{{track}}.json
+
+# headless Chromium (WebGPU via SwiftShader) end-to-end check; needs `just serve` running
+verify port="8000":
+    cd tools && node verify.mjs ../analysis/out/verify http://localhost:{{port}}/web/
+    cd tools && node keys.mjs ../analysis/out/verify/keys.png http://localhost:{{port}}/web/

@@ -88,8 +88,8 @@ export function sampleAttractor(flame, n = 20000) {
  * Centre the camera on the attractor and zoom so its [lo, hi] percentile box
  * fills `fill` of the viewport height (aspect = width / height).
  */
-export function autoFrame(flame, aspect = 16 / 9, fill = 0.75, lo = 0.02, hi = 0.98) {
-  const pts = sampleAttractor(flame);
+export function autoFrame(flame, aspect = 16 / 9, fill = 0.75, lo = 0.02, hi = 0.98, n = 20000) {
+  const pts = sampleAttractor(flame, n);
   const q = (arr, t) => arr[Math.min(arr.length - 1, Math.floor(t * arr.length))];
   const xs = pts.map((p) => p[0]).sort((a, b) => a - b);
   const ys = pts.map((p) => p[1]).sort((a, b) => a - b);

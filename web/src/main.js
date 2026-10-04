@@ -5,6 +5,7 @@
 //   audio=<url> timeline=<url>   explicit sources
 //   preset=0 chains=65536 iters=16 decay=0.9 res=1 lookahead=0.03
 //   t=<seconds>              start position
+//   follow=0                 disable camera follow
 //   clock=manual             (testing) time is set via window.__setTime(t), not audio
 
 import { createRenderer, WebGPUUnavailable } from './renderer/renderer.js';
@@ -64,6 +65,32 @@ function loadPreset(i) {
 }
 let base = loadPreset(state.presetIndex);
 
+// camera follow: the mapping reshapes the attractor (spin, bass rotation), so
+// re-frame the *modulated* flame on the CPU every REFRAME_MS and ease the
+// camera toward it. Kick zoom pulses are applied on top of this.
+const REFRAME_MS = 500, CAM_TAU = 1.5;
+const follow = { target: null, last: 0, wall: performance.now() };
+function followCamera(modFlame) {
+  const nowMs = performance.now();
+  const dt = Math.min(0.1, (nowMs - follow.wall) / 1000);
+  follow.wall = nowMs;
+  if (q.get('follow') === '0') return;
+  if (nowMs - follow.last > REFRAME_MS) {
+    follow.last = nowMs;
+    follow.target = autoFrame({ ...modFlame, camera: base.camera }, canvas.clientWidth / canvas.clientHeight, 0.75, 0.02, 0.98, 6000);
+  }
+  if (!follow.target) return;
+  const k = 1 - Math.exp(-dt / CAM_TAU);
+  const c = base.camera, tg = follow.target;
+  // ease zoom in log space so zooming in/out feels symmetric
+  base.camera = {
+    ...c,
+    x: c.x + (tg.x - c.x) * k,
+    y: c.y + (tg.y - c.y) * k,
+    zoom: Math.exp(Math.log(c.zoom) + (Math.log(tg.zoom) - Math.log(c.zoom)) * k),
+  };
+}
+
 // ---------------------------------------------------------------- audio + timeline
 const clock = new AudioClock(audio);
 const now = () => (state.manualT != null ? state.manualT : clock.now());
@@ -120,6 +147,7 @@ function draw() {
   if (state.mapper) {
     lastMods = state.mapper.update(t);
     ({ flame, itersScale, paletteOffset } = applyMods(base, lastMods, mapOpts));
+    followCamera({ ...flame, camera: base.camera });
   }
   const its = renderer.render(flame, {
     itersPerThread: state.itersPerThread * itersScale,

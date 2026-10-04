@@ -69,6 +69,7 @@ if (!process.env.NO_PLAYBACK) {
   };
   await page.evaluate(() => document.getElementById('audio').play());
   const a = await drift('playing');
+  log(`spin phase after ${a.ct.toFixed(1)} s of playback: ${(await page.evaluate(() => window.__flamebeat.mods.spinPhase)).toFixed(3)} rad (should be > 0)`);
   if (a.paused || a.ct < 0.5) log('WARNING: audio did not advance in headless playback');
   await page.keyboard.press('Space');                   // pause via keyboard handler
   await page.waitForTimeout(400);                       // let a frame render after the pause
