@@ -8,8 +8,15 @@
 </head>
 <body>
   <canvas id="gpu"></canvas>
+  <canvas id="debug" hidden></canvas>
   <div id="msg" hidden></div>
   <div id="hud"></div>
+  <div id="bar">
+    <audio id="audio" controls preload="auto"></audio>
+    <label class="btn">open… <input id="file" type="file" accept="audio/*,.json,application/json" multiple hidden></label>
+    <span id="status"></span>
+    <span class="keys">space play · ←/→ seek · P preset · D debug · [ ] iterations · H hide</span>
+  </div>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

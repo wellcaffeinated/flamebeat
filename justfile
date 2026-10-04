@@ -16,7 +16,6 @@ analyze file:
 analyze-all:
     for f in assets/audio/*.mp3 assets/audio/*.ogg assets/audio/*.wav assets/audio/*.flac; do [ -e "$f" ] && just analyze "$f" || true; done
 
-# serve the repo root (web/ + assets/audio/) at http://localhost:8000/web/
+# serve the repo root (web/ + assets/audio/) at http://localhost:8000/web/ (with HTTP Range, for seeking)
 serve port="8000":
-    @echo "open http://localhost:{{port}}/web/"
-    cd analysis && uv run python -m http.server {{port}} --directory "{{justfile_directory()}}"
+    cd analysis && uv run python ../scripts/serve.py {{port}}

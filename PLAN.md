@@ -139,13 +139,13 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
 - [x] commit at each working step
 
 ## Phase 4: Track sync + mapping
-- [ ] `<audio>` element + file picker; the matching timeline JSON is loaded by
+- [x] `<audio>` element + file picker; the matching timeline JSON is loaded by
       name, or picked alongside it.
-- [ ] `timeline.js`: sample continuous streams at `audio.currentTime` with
+- [x] `timeline.js`: sample continuous streams at `audio.currentTime` with
       linear interpolation; query events in a window (with **lookahead**, so
       visuals can anticipate hits by a configurable few ms).
-- [ ] Handles pause, seek and playback-rate changes correctly.
-- [ ] `mapping.js`: a declarative table of signal → parameter, with gain,
+- [x] Handles pause, seek and playback-rate changes correctly.
+- [x] `mapping.js`: a declarative table of signal → parameter, with gain,
       curve, attack/release envelope, and clamp. Drum events trigger decaying
       impulses. Starting set:
   - volume → brightness
@@ -155,9 +155,9 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   - hat → small variation blend jitter (e.g. toward julia)
   - chroma (dominant pitch class, smoothed) → palette position
   - bass f0 (confidence-gated, hold last value) → rotation of one transform
-- [ ] Keep affines contractive: clamp so the shape doesn't blow up.
-- [ ] Debug overlay: live bars for each signal + event flashes (toggle with `D`).
-- [ ] commit
+- [x] Keep affines contractive: clamp so the shape doesn't blow up.
+- [x] Debug overlay: live bars for each signal + event flashes (toggle with `D`).
+- [x] commit
 
 ## Phase 5: Polish & verification
 - [ ] Keyboard: space play/pause, ←/→ seek, P next preset, D debug.
@@ -242,3 +242,28 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   a CPU chaos game (2-98 percentile box). Three presets render as expected
   in SwiftShader (docs/presets-headless.png). SwiftShader speed: ~12 fps /
   1.5 M iter/s at 960x540 with 16k chains x 8; real-GPU fps not measured.
+- 2026-10-04: Phase 4. `timeline.js` is stateless in t (interpolated
+  streams, binary-searched events, impulses computed directly from events
+  with a 30 ms default lookahead), so pause/seek/rate need no special
+  handling; `AudioClock` extrapolates between coarse `currentTime` updates
+  (capped at 250 ms). `mapping.js`: declarative MAPPINGS table, one-pole
+  attack/release envelopes on *media* time (pause freezes, seek resets,
+  1.5x speeds them up). Starting values: volume->brightness x0.45..1.25
+  (curve 1.6); intensity->spin 0.03..0.55 rad/s on xform 0 and iterations
+  x0.55..1; kick->zoom +0..9 % (release 120 ms) and xform-1 weight
+  x1..2.6; snare->palette +0..0.12; hat->julia blend 0..0.3 on the last
+  xform (release 70 ms); chroma circular mean -> palette 0..0.35 (0.6 s);
+  bass f0 (pYIN conf >= 0.5, held, 40-160 Hz log) -> xform-1 rotation
+  +-0.5 rad. All affines clamped to max singular value 0.98.
+  - Bug found by `tools/test-sync.mjs`: held bass pitch leaked across seeks;
+    now rebuilt by scanning back to the last confident frame.
+  - Bug found by `tools/verify.mjs`: seeking snapped to 0 because
+    `python -m http.server` ignores HTTP Range. Added `scripts/serve.py`
+    (Range support); `just serve` uses it.
+  - Verified headless (SwiftShader): mp3 loads (201.46 s), playback runs,
+    the render clock equals `audio.currentTime` in the same frame, Space
+    pauses, seek to 64 s and ArrowRight (+5 s) land correctly, 1.5x advances
+    3.03 s of media in 2.02 s wall. Snapshots at 3/64.45/66.55/110/150 s show
+    different palette/shape (docs/timeline-snapshots-headless.png).
+    Not verified: how it *feels* with sound on a real GPU (no audio output
+    or GPU here), and whether 30 ms lookahead is right for real output latency.
