@@ -1,0 +1,16 @@
+# audio (fetched by scripts/fetch-test-track.sh)
+assets/audio/*
+!assets/audio/.gitkeep
+
+# python
+.venv/
+__pycache__/
+*.pyc
+
+# generated analysis output (large); regenerate with `just analyze`
+web/timelines/*.json
+analysis/out/
+
+# misc
+node_modules/
+.DS_Store

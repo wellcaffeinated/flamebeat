@@ -73,12 +73,12 @@ All continuous arrays share `rate` (frames per second). Normalise each stream to
 ---
 
 ## Phase 0: Scaffold
-- [ ] `.gitignore` (audio, `.venv`, `__pycache__`, generated timelines if large)
-- [ ] `analysis/` uv project. Pin a Python version that basic-pitch supports
+- [x] `.gitignore` (audio, `.venv`, `__pycache__`, generated timelines if large)
+- [x] `analysis/` uv project. Pin a Python version that basic-pitch supports
       (likely 3.10 or 3.11; check).
-- [ ] `web/` skeleton and `justfile` (`fetch`, `analyze <file>`, `serve`)
-- [ ] `README.md` with the quickstart
-- [ ] commit
+- [x] `web/` skeleton and `justfile` (`fetch`, `analyze <file>`, `serve`)
+- [x] `README.md` with the quickstart
+- [x] commit
 
 ## Phase 1: Test track
 - [ ] Find a **free-to-use** track with a clear beat (drums, bass, some melody),
@@ -175,3 +175,9 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
 - 2026-10-04: Repo created, plan written. Decisions: Python for offline
   analysis (full mix only, no stem separation); WebGPU for rendering; sync via
   a pre-computed JSON timeline sampled at `audio.currentTime`.
+- 2026-10-04: Phase 0 scaffold. Python pinned to **3.10**: basic-pitch 0.4.0
+  pulls full TensorFlow on >=3.11 but the light `tflite-runtime` (2.3 MB) on
+  Linux <3.11. tflite-runtime 2.14 is built against NumPy 1.x, so `numpy<2`;
+  resampy (basic-pitch dep) imports `pkg_resources`, so `setuptools<81`.
+  basic-pitch imports and loads its tflite model OK. Generated timelines go to
+  `web/timelines/` (gitignored), diagnostic PNGs to `analysis/out/`.
