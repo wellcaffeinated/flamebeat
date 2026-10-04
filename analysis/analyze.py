@@ -12,8 +12,10 @@ import time
 
 import numpy as np
 
+from features.beats import beats
 from features.common import RATE, SR, load
 from features.energy import energy
+from features.transients import transients
 from features.volume import volume
 
 
@@ -52,8 +54,15 @@ def main(argv=None) -> int:
     step("volume")
     vol = volume(a)
 
+    step("transients")
+    tr = transients(a)
+
+    step("beats")
+    bt = beats(a, kick_env=tr["env"]["kick"])
+    step(f"  tempo {bt['tempo']:.1f} BPM, {len(bt['beats'])} beats, downbeat phase {bt['phase']}")
+
     step("energy")
-    en = energy(a, onset_times=None)
+    en = energy(a, onset_times=np.array([o["t"] for o in tr["onsets"]]))
     en.pop("_raw_db")
 
     continuous = {
@@ -61,12 +70,14 @@ def main(argv=None) -> int:
         "volume_db": vol["volume_db"],
         "rms_db": vol["rms_db"],
         "energy": en,
+        "drums": tr["env"],              # per-band percussive onset envelopes, 0..1
     }
-    events: dict = {"drums": [], "onsets": [], "notes": [], "beats": []}
+    events: dict = {"drums": tr["drums"], "onsets": tr["onsets"], "notes": [], "beats": bt["beats"]}
 
     timeline = {
         "version": 1,
-        "track": {"file": os.path.basename(args.audio), "duration": round(a.duration, 3), "sr": SR},
+        "track": {"file": os.path.basename(args.audio), "duration": round(a.duration, 3), "sr": SR,
+                  "tempo": round(bt["tempo"], 2)},
         "rate": RATE,
         "continuous": continuous,
         "events": events,
