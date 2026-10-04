@@ -58,8 +58,11 @@ def main(argv=None) -> int:
     tr = transients(a)
 
     step("beats")
-    bt = beats(a, kick_env=tr["env"]["kick"])
-    step(f"  tempo {bt['tempo']:.1f} BPM, {len(bt['beats'])} beats, downbeat phase {bt['phase']}")
+    bt = beats(a, kick_env=tr["env"]["kick"], onset_times=tr["candidates"] / RATE)
+    step(f"  tempo {bt['tempo']:.1f} BPM, {len(bt['beats'])} beats, "
+         f"grid offset {bt['offset'] * 1000:+.0f} ms, downbeat phase {bt['phase']}")
+    counts = {k: sum(d["type"] == k for d in tr["drums"]) for k in ("kick", "snare", "hat")}
+    step(f"  drums {counts}, onsets {len(tr['onsets'])}")
 
     step("energy")
     en = energy(a, onset_times=np.array([o["t"] for o in tr["onsets"]]))
