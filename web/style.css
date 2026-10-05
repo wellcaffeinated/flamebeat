@@ -2,6 +2,7 @@ html, body { margin: 0; height: 100%; background: #000; color: #ddd; font: 13px/
 canvas#gpu { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
 canvas#debug { position: fixed; right: 8px; top: 8px; border-radius: 6px; }
 #msg { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 2em; font-size: 16px; white-space: pre-line; }
+#msg[hidden] { display: none; }
 #hud { position: fixed; left: 8px; top: 6px; font: 12px/1.3 ui-monospace, monospace; color: #9a9; text-shadow: 0 0 3px #000; pointer-events: none; }
 #bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 8px 12px; background: linear-gradient(transparent, rgba(0,0,0,.75)); }
 #bar.hidden { display: none; }
@@ -10,3 +11,18 @@ canvas#debug { position: fixed; right: 8px; top: 8px; border-radius: 6px; }
 .btn:hover { border-color: #999; }
 #status { color: #aaa; }
 .keys { color: #777; font-size: 12px; margin-left: auto; }
+button.btn { color: inherit; font: inherit; }
+#routes { position: fixed; left: 8px; top: 28px; max-height: calc(100vh - 110px); overflow-y: auto; padding: 8px 10px; border-radius: 6px; background: rgba(0,0,0,.72); font-size: 12px; }
+#routes .routes-head { display: flex; gap: 10px; align-items: baseline; margin-bottom: 6px; }
+#routes .hint { color: #777; }
+#routes .route { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
+#routes select, #routes button { background: #111; color: #ddd; border: 1px solid #444; border-radius: 3px; font: inherit; padding: 2px 4px; }
+#routes select { width: 140px; }
+#routes button { cursor: pointer; }
+#routes button:hover, #routes select:hover { border-color: #999; }
+#routes .arrow { color: #777; }
+#routes input[type=range] { width: 120px; accent-color: #d8f; }
+#routes output { width: 3.2em; text-align: right; font-family: ui-monospace, monospace; color: #ccc; }
+#routes .meter { width: 40px; height: 6px; background: #222; border-radius: 3px; overflow: hidden; }
+#routes .meter i { display: block; height: 100%; width: 0; background: #d8f; }
+#routes .routes-foot { display: flex; gap: 6px; margin-top: 8px; }

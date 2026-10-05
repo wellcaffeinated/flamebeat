@@ -38,6 +38,7 @@ HTTP Range requests, and without them the browser can't seek in the audio.
 | ← / → | seek −5 s / +5 s (shift: 30 s) |
 | P | next preset |
 | D | debug overlay (live signal bars, drum and beat flashes, chroma) |
+| M | route editor (also the **routes** button): pick source → parameter, set amount |
 | [ / ] | fewer / more iterations per frame |
 | H | hide the bottom bar and HUD |
 
@@ -100,9 +101,20 @@ the test track are in the PLAN.md log.
 
 ### Mapping (`web/src/mapping.js`)
 
-`MAPPINGS` is a declarative table. Each row reads one signal, then applies
-gain, curve and an attack/release envelope (in media time) before driving one
-target:
+`MAPPINGS` is the default table of routes, `{ src, target, amount }`, where
+`src` is a key of `SOURCES` and `target` a key of `TARGETS`. Each source brings
+its own envelope (gain, curve, attack/release in media time, or an impulse
+shape for events); each target has a neutral value and an output range. A
+route adds `amount × (range value − neutral)` to its target, so routes to the
+same target stack, 0 switches a route off and negative amounts invert it.
+
+The **route editor** (M, or the *routes* button) edits this table live: a
+source select, a target select and an amount slider (−2…2, double-click resets
+to 1) per row, plus a live envelope meter, add/remove, and reset to defaults.
+Edits are saved in `localStorage`. Sources: volume, intensity, flux, the four
+band energies, kick/snare/hat/beat/onset/note hits, chroma and bass pitch.
+
+Defaults:
 
 | signal | → | parameter |
 | --- | --- | --- |

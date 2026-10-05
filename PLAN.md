@@ -287,3 +287,13 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
     presets and per-preset `mod` routing; smaller timeline (quantised chroma
     or a binary format); downbeat detection beyond the 4-beat heuristic;
     preset morphing on section changes (intensity jumps).
+- 2026-10-04: Route editor. `mapping.js` routes are now `{ src, target, amount }`
+  over `SOURCES` / `TARGETS` catalogues (defaults reproduce the old modulation
+  ranges exactly, checked with `just test`). Routes add their deviation from
+  the target's neutral value, so several can share a target; `applyMods`
+  clamps every slot since amounts can be −2…2. UI: `web/src/routes-ui.js`
+  (M / routes button), saved to localStorage. Fixed `#msg` overriding
+  `hidden` with `display:flex`, which put an invisible full-screen layer over
+  every click. `tools/routes.mjs` (part of `just verify`) drives the selects
+  and slider headless and checks the mods respond. Not verified: how amount
+  changes feel with sound on a real GPU.

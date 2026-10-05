@@ -14,6 +14,7 @@ import { clone, autoFrame } from './flame.js';
 import { Timeline, AudioClock } from './timeline.js';
 import { Mapper, applyMods, MAP_DEFAULTS } from './mapping.js';
 import { DebugOverlay } from './overlay.js';
+import { RoutesPanel, loadRoutes } from './routes-ui.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? Number(q.get(k)) : d);
@@ -26,6 +27,8 @@ const audio = $('audio');
 const statusEl = $('status');
 const bar = $('bar');
 const overlay = new DebugOverlay($('debug'));
+const routesPanel = new RoutesPanel($('routes'), loadRoutes(), (rows) => state.mapper?.setRoutes(rows));
+$('routes-btn').addEventListener('click', () => routesPanel.toggle());
 
 const state = {
   presetIndex: num('preset', 0) % presets.length,
@@ -101,7 +104,7 @@ async function loadTimelineFrom(urlOrFile) {
       ? await fetch(urlOrFile).then((r) => { if (!r.ok) throw new Error(`${r.status} ${urlOrFile}`); return r.json(); })
       : JSON.parse(await urlOrFile.text());
     state.timeline = new Timeline(json);
-    state.mapper = new Mapper(state.timeline, undefined, mapOpts);
+    state.mapper = new Mapper(state.timeline, routesPanel.rows, mapOpts);
     setStatus(`${json.track?.file ?? 'timeline'} · ${state.timeline.tempo.toFixed(1)} BPM · `
       + `${state.timeline.events.drums?.length ?? 0} drum hits`);
     return true;
@@ -155,6 +158,7 @@ function draw() {
     paletteOffset,
   });
   overlay.draw(t, state.timeline, state.mapper ?? { opts: mapOpts, mappings: [], env: new Map() });
+  routesPanel.draw(state.mapper);
   return { its, t };
 }
 
@@ -182,7 +186,7 @@ requestAnimationFrame(frame);
 
 // ---------------------------------------------------------------- keyboard
 window.addEventListener('keydown', (e) => {
-  if (e.target instanceof HTMLInputElement) return;
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLButtonElement) return;
   switch (e.key) {
     case ' ':
       e.preventDefault();
@@ -197,6 +201,7 @@ window.addEventListener('keydown', (e) => {
       renderer.clear();
       break;
     case 'd': case 'D': overlay.toggle(); break;
+    case 'm': case 'M': routesPanel.toggle(); break;
     case 'h': case 'H': bar.classList.toggle('hidden'); hud.hidden = !hud.hidden; break;
     case '[': state.itersPerThread = Math.max(1, Math.round(state.itersPerThread / 1.5)); break;
     case ']': state.itersPerThread = Math.min(512, Math.round(state.itersPerThread * 1.5) || 1); break;
@@ -216,5 +221,6 @@ window.__grab = async () => {
   return c.toDataURL('image/png');
 };
 window.__setTime = (t) => { state.manualT = t; };
+window.__routes = routesPanel;
 window.__overlay = (on = true) => { if (overlay.visible !== on) overlay.toggle(); };
 window.__renderer = renderer;

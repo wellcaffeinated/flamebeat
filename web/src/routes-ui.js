@@ -1,0 +1,100 @@
+// Route editor (toggle with M): one row per signal -> parameter route, with a
+// source select, a target select and an amount slider. Edits apply live via
+// mapper.setRoutes() and are remembered in localStorage.
+
+import { SOURCES, TARGETS, MAPPINGS } from './mapping.js';
+
+const STORE = 'flamebeat.routes.v1';
+
+export function loadRoutes() {
+  try {
+    const rows = JSON.parse(localStorage.getItem(STORE));
+    if (Array.isArray(rows) && rows.every((r) => SOURCES[r.src] && TARGETS[r.target])) return rows;
+  } catch { /* storage blocked or corrupt: fall back to defaults */ }
+  return structuredClone(MAPPINGS);
+}
+
+function saveRoutes(rows) {
+  try { localStorage.setItem(STORE, JSON.stringify(rows)); } catch { /* ignore */ }
+}
+
+function el(tag, props = {}, ...kids) {
+  const e = Object.assign(document.createElement(tag), props);
+  e.append(...kids);
+  return e;
+}
+
+function select(table, value, onChange) {
+  const s = el('select');
+  for (const [k, v] of Object.entries(table)) s.append(el('option', { value: k, textContent: v.label, selected: k === value }));
+  s.addEventListener('change', () => onChange(s.value));
+  return s;
+}
+
+export class RoutesPanel {
+  /** `onChange(rows)` is called after every edit. */
+  constructor(root, rows, onChange) {
+    this.root = root;
+    this.rows = rows;
+    this.onChange = onChange;
+    this.meters = [];
+    this.render();
+  }
+
+  get visible() { return !this.root.hidden; }
+  toggle() { this.root.hidden = !this.root.hidden; }
+
+  changed(rebuild = false) {
+    saveRoutes(this.rows);
+    this.onChange(this.rows);
+    if (rebuild) this.render();
+  }
+
+  render() {
+    const r = this.root;
+    r.replaceChildren();
+    this.meters = [];
+    r.append(el('div', { className: 'routes-head' },
+      el('b', { textContent: 'routes' }),
+      el('span', { className: 'hint', textContent: 'source → parameter · amount (double-click = 1)' })));
+
+    this.rows.forEach((row, i) => {
+      // changing source/target drops per-row envelope overrides so the new
+      // pairing gets that source's and target's own defaults
+      const fresh = (patch) => { this.rows[i] = { src: row.src, target: row.target, amount: row.amount ?? 1, ...patch }; this.changed(true); };
+      const val = el('output', { textContent: (row.amount ?? 1).toFixed(2) });
+      const slider = el('input', { type: 'range', min: -2, max: 2, step: 0.05, value: row.amount ?? 1, title: 'amount' });
+      slider.addEventListener('input', () => {
+        row.amount = Number(slider.value);
+        val.textContent = row.amount.toFixed(2);
+        this.changed();
+      });
+      slider.addEventListener('dblclick', () => { slider.value = 1; slider.dispatchEvent(new Event('input')); });
+      const meter = el('span', { className: 'meter' }, el('i'));
+      this.meters.push(meter.firstChild);
+      r.append(el('div', { className: 'route' },
+        select(SOURCES, row.src, (v) => fresh({ src: v })),
+        el('span', { className: 'arrow', textContent: '→' }),
+        select(TARGETS, row.target, (v) => fresh({ target: v })),
+        slider, val, meter,
+        Object.assign(el('button', { textContent: '×', title: 'remove route' }),
+          { onclick: () => { this.rows.splice(i, 1); this.changed(true); } })));
+    });
+
+    r.append(el('div', { className: 'routes-foot' },
+      Object.assign(el('button', { textContent: '+ add route' }),
+        { onclick: () => { this.rows.push({ src: 'kick', target: 'zoomPulse', amount: 1 }); this.changed(true); } }),
+      Object.assign(el('button', { textContent: 'reset to defaults' }),
+        { onclick: () => { this.rows = structuredClone(MAPPINGS); this.changed(true); } })));
+  }
+
+  /** Live envelope meters, fed from the mapper each frame. */
+  draw(mapper) {
+    if (!this.visible || !mapper) return;
+    mapper.mappings.forEach((m, i) => {
+      const e = mapper.env.get(m.id);
+      const v = Array.isArray(e) ? ((Math.atan2(e[1], e[0]) / (2 * Math.PI)) + 1) % 1 : (e ?? 0);
+      if (this.meters[i]) this.meters[i].style.width = `${Math.round(Math.min(1, Math.max(0, v)) * 100)}%`;
+    });
+  }
+}

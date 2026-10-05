@@ -1,7 +1,8 @@
 // Signals -> flame parameters.
 //
-// MAPPINGS is the declarative table. Each row reads one source signal (0..1),
-// shapes it, and drives one target:
+// MAPPINGS is the declarative table of routes. Each row is
+//   { src: <SOURCES key>, target: <TARGETS key>, amount: 1, ...overrides }
+// and resolve() expands it into the full form the Mapper runs:
 //   src      { stream: 'energy.intensity' }      continuous timeline stream
 //            { impulse: 'kick', attack, release } decaying impulse from events
 //            { derived: 'chromaPos' | 'bassPitch' }
@@ -9,24 +10,81 @@
 //   curve    power applied after gain+clamp   (default 1, >1 = more contrast)
 //   attack / release   one-pole envelope time constants in seconds (media time)
 //   out      [min, max]  the 0..1 value is mapped linearly onto this range
+//   amount   scales the route's deviation from the target's neutral value
+//            (0 = off, 1 = as designed, negative = inverted)
 //   target   name of a modulation slot, consumed by applyMods() below
+// Overrides on a row (curve, attack, release, out, impulse) beat the target's
+// and source's defaults. Several routes may share a target: their deviations add.
 //
 // Envelopes run on *media* time (t - tPrev), so pause freezes the visuals,
 // playbackRate changes scale them correctly, and seeks reset them.
 
 import { clone, rotateAffine, clampContractive } from './flame.js';
 
+/** Signals a route can read. `env` is the default envelope for that kind of signal. */
+export const SOURCES = {
+  volume: { label: 'volume', src: { stream: 'volume' }, env: { curve: 1.6, attack: 0.03, release: 0.25 } },
+  intensity: { label: 'intensity', src: { stream: 'energy.intensity' }, env: { attack: 0.3, release: 1.0 } },
+  flux: { label: 'spectral flux', src: { stream: 'energy.flux' }, env: { attack: 0.02, release: 0.2 } },
+  sub: { label: 'sub energy', src: { stream: 'energy.sub' }, env: { attack: 0.03, release: 0.25 } },
+  bass: { label: 'bass energy', src: { stream: 'energy.bass' }, env: { attack: 0.03, release: 0.25 } },
+  mid: { label: 'mid energy', src: { stream: 'energy.mid' }, env: { attack: 0.03, release: 0.25 } },
+  high: { label: 'high energy', src: { stream: 'energy.high' }, env: { attack: 0.03, release: 0.25 } },
+  kick: { label: 'kick hit', src: { impulse: 'kick' }, impulse: { attack: 0.008, release: 0.15 } },
+  snare: { label: 'snare hit', src: { impulse: 'snare' }, impulse: { attack: 0.005, release: 0.2 } },
+  hat: { label: 'hat hit', src: { impulse: 'hat' }, impulse: { attack: 0.004, release: 0.07 } },
+  beat: { label: 'beat', src: { impulse: 'beats' }, impulse: { attack: 0.005, release: 0.15 } },
+  onset: { label: 'onset', src: { impulse: 'onsets' }, impulse: { attack: 0.005, release: 0.1 } },
+  note: { label: 'note', src: { impulse: 'notes' }, impulse: { attack: 0.005, release: 0.15 } },
+  chroma: { label: 'chroma', src: { derived: 'chromaPos' }, env: { attack: 0.6, release: 0.6 }, circular: true },
+  bassPitch: { label: 'bass pitch', src: { derived: 'bassPitch' }, env: { attack: 0.08, release: 0.08 } },
+};
+
+/** Modulation slots. `neutral` is the value with no routes; `out` the range at amount 1. */
+export const TARGETS = {
+  brightness: { label: 'brightness', neutral: 1, out: [0.45, 1.25] },
+  spin: { label: 'spin speed', neutral: 0, out: [0.03, 0.55], env: { curve: 1.5, attack: 0.5, release: 1.5 } },
+  iters: { label: 'iterations', neutral: 1, out: [0.55, 1.0] },
+  zoomPulse: { label: 'zoom pulse', neutral: 0, out: [0, 0.09] },
+  weightBump: { label: 'transform weight', neutral: 0, out: [0, 1.6] },
+  paletteKick: { label: 'palette shift', neutral: 0, out: [0, 0.12] },
+  palettePos: { label: 'palette position', neutral: 0, out: [0, 1] },
+  juliaJitter: { label: 'julia blend', neutral: 0, out: [0, 0.3] },
+  xformRotate: { label: 'transform rotate', neutral: 0, out: [-0.5, 0.5] },
+};
+
 export const MAPPINGS = [
-  { id: 'volume→brightness', src: { stream: 'volume' }, curve: 1.6, attack: 0.03, release: 0.25, out: [0.45, 1.25], target: 'brightness' },
-  { id: 'intensity→spin', src: { stream: 'energy.intensity' }, curve: 1.5, attack: 0.5, release: 1.5, out: [0.03, 0.55], target: 'spin' },
-  { id: 'intensity→iterations', src: { stream: 'energy.intensity' }, attack: 0.3, release: 1.0, out: [0.55, 1.0], target: 'iters' },
-  { id: 'kick→zoom', src: { impulse: 'kick', attack: 0.008, release: 0.12 }, out: [0, 0.09], target: 'zoomPulse' },
-  { id: 'kick→weight', src: { impulse: 'kick', attack: 0.008, release: 0.18 }, out: [0, 1.6], target: 'weightBump' },
-  { id: 'snare→palette', src: { impulse: 'snare', attack: 0.005, release: 0.2 }, out: [0, 0.12], target: 'paletteKick' },
-  { id: 'hat→julia', src: { impulse: 'hat', attack: 0.004, release: 0.07 }, out: [0, 0.3], target: 'juliaJitter' },
-  { id: 'chroma→palette', src: { derived: 'chromaPos' }, attack: 0.6, release: 0.6, out: [0, 1], target: 'palettePos', circular: true },
-  { id: 'bassf0→rotate', src: { derived: 'bassPitch' }, attack: 0.08, release: 0.08, out: [-0.5, 0.5], target: 'xformRotate' },
+  { src: 'volume', target: 'brightness', amount: 1 },
+  { src: 'intensity', target: 'spin', amount: 1 },
+  { src: 'intensity', target: 'iters', amount: 1 },
+  { src: 'kick', target: 'zoomPulse', amount: 1, impulse: { attack: 0.008, release: 0.12 } },
+  { src: 'kick', target: 'weightBump', amount: 1, impulse: { attack: 0.008, release: 0.18 } },
+  { src: 'snare', target: 'paletteKick', amount: 1 },
+  { src: 'hat', target: 'juliaJitter', amount: 1 },
+  { src: 'chroma', target: 'palettePos', amount: 1 },
+  { src: 'bassPitch', target: 'xformRotate', amount: 1 },
 ];
+
+/** Expand a route row into the full form the Mapper runs (see top of file). */
+export function resolve(row, i = 0) {
+  const S = SOURCES[row.src], T = TARGETS[row.target];
+  if (!S || !T) throw new Error(`unknown route ${row.src} -> ${row.target}`);
+  // slow targets (spin) keep their own smoothing on continuous sources;
+  // impulses are already shaped, so they skip the envelope
+  const env = S.src.impulse ? {} : { ...S.env, ...(S.circular ? {} : T.env) };
+  return {
+    id: `${S.label}→${T.label}#${i}`,
+    src: S.src.impulse ? { ...S.src, ...S.impulse, ...row.impulse } : S.src,
+    curve: row.curve ?? env.curve,
+    attack: row.attack ?? env.attack,
+    release: row.release ?? env.release,
+    out: row.out ?? T.out,
+    target: row.target,
+    neutral: T.neutral,
+    amount: row.amount ?? 1,
+    circular: !!S.circular,
+  };
+}
 
 export const MAP_DEFAULTS = {
   lookahead: 0.03,        // s: impulses lead the audio a little (output latency + perception)
@@ -40,12 +98,18 @@ const clamp01 = (x) => Math.min(1, Math.max(0, x));
 const TAU = Math.PI * 2;
 
 export class Mapper {
-  constructor(timeline, mappings = MAPPINGS, opts = {}) {
+  constructor(timeline, routes = MAPPINGS, opts = {}) {
     this.tl = timeline;
-    this.mappings = mappings;
     this.opts = { ...MAP_DEFAULTS, ...opts };
     this.chroma = new Float32Array(12);
+    this.setRoutes(routes);
     this.reset();
+  }
+
+  /** Replace the route table (live; envelopes of unchanged routes carry over by id). */
+  setRoutes(routes) {
+    this.routes = routes;
+    this.mappings = routes.map(resolve);
   }
 
   reset() {
@@ -108,6 +172,7 @@ export class Mapper {
     this.tPrev = t;
 
     const mods = {};
+    for (const [k, T] of Object.entries(TARGETS)) mods[k] = T.neutral;
     for (const m of this.mappings) {
       let s = this.source(m.src, t);
       this.signals[m.id] = s;
@@ -134,7 +199,7 @@ export class Mapper {
         s = e;
       }
       const [lo, hi] = m.out ?? [0, 1];
-      mods[m.target] = (mods[m.target] ?? 0) + lo + (hi - lo) * s;
+      mods[m.target] += m.amount * (lo + (hi - lo) * s - m.neutral);
     }
     this.spinPhase += (mods.spin ?? 0) * dt;
     mods.spinPhase = this.spinPhase;
@@ -155,14 +220,15 @@ export function applyMods(base, mods, opts = MAP_DEFAULTS) {
   const n = xs.length;
   const idx = { spin: 0, kick: Math.min(1, n - 1), bass: Math.min(1, n - 1), hat: n - 1, ...(base.mod ?? {}) };
 
-  if (mods.brightness != null) f.brightness *= mods.brightness;
+  // routes can be amplified or inverted from the UI, so clamp every slot to a safe range
+  if (mods.brightness != null) f.brightness *= Math.max(0, mods.brightness);
 
   if (mods.spinPhase) xs[idx.spin].affine = rotateAffine(xs[idx.spin].affine, mods.spinPhase);
   if (mods.xformRotate) xs[idx.bass].affine = rotateAffine(xs[idx.bass].affine, mods.xformRotate);
-  if (mods.weightBump) xs[idx.kick].weight *= 1 + mods.weightBump;
-  if (mods.zoomPulse) f.camera = { ...f.camera, zoom: f.camera.zoom * (1 + mods.zoomPulse) };
+  if (mods.weightBump) xs[idx.kick].weight *= Math.max(0.05, 1 + mods.weightBump);
+  if (mods.zoomPulse) f.camera = { ...f.camera, zoom: f.camera.zoom * Math.max(0.2, 1 + mods.zoomPulse) };
 
-  if (mods.juliaJitter) {
+  if (mods.juliaJitter > 0) {
     const x = xs[idx.hat];
     const j = Math.min(0.9, mods.juliaJitter);
     const v = { ...x.vars };
@@ -175,5 +241,5 @@ export function applyMods(base, mods, opts = MAP_DEFAULTS) {
   for (const x of xs) x.affine = clampContractive(x.affine, opts.maxGain ?? 0.98);
 
   const paletteOffset = (mods.paletteKick ?? 0) + (mods.palettePos ?? 0) * (opts.paletteRange ?? 0.35);
-  return { flame: f, itersScale: mods.iters ?? 1, paletteOffset };
+  return { flame: f, itersScale: Math.min(4, Math.max(0.05, mods.iters ?? 1)), paletteOffset };
 }
