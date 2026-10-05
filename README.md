@@ -45,7 +45,7 @@ HTTP Range requests, and without them the browser can't seek in the audio.
 URL parameters: `track=<name>` (loads `../assets/audio/<name>.mp3` and
 `timelines/<name>.json`), `audio=<url>`, `timeline=<url>`, `preset=0..2`,
 `chains=65536`, `iters=16`, `decay=0.9`, `res=1` (resolution scale),
-`lookahead=0.03`, `t=<s>` (start position), `follow=0` (turn off camera follow).
+`lookahead=0.03`, `t=<s>` (start position), `follow=1` (turn on camera follow).
 
 ### Adding a track
 
@@ -96,8 +96,9 @@ the test track are in the PLAN.md log.
   temporal smoothing and trails.
 - A tone-map pass does flam3-style log density, gamma and vibrancy, drawn
   as a full-screen triangle.
-- The camera auto-frames the attractor using a small CPU chaos game, and keeps
-  following it slowly as the mapping reshapes the flame.
+- The camera auto-frames the attractor using a small CPU chaos game. With
+  `?follow=1` it keeps re-framing as the mapping reshapes the flame. This is
+  off by default because the random sampling makes the whole view drift a little.
 
 ### Mapping (`web/src/mapping.js`)
 

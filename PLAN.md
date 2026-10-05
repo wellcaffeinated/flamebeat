@@ -297,3 +297,9 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   every click. `tools/routes.mjs` (part of `just verify`) drives the selects
   and slider headless and checks the mods respond. Not verified: how amount
   changes feel with sound on a real GPU.
+- 2026-10-04: Camera follow is now **off by default** (`?follow=1` turns it on).
+  With every route at amount 0 it still made the whole image drift: each
+  re-frame estimates the bounds from 6000 random CPU samples, so the target
+  jitters about 1%. Measured headless: brightness-centre drift 0.28% of width
+  with follow on vs 0.03% (render noise) with it off. Trade-off: heavy spin
+  can now carry presets partly out of frame (the original reason for follow).

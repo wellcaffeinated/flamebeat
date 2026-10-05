@@ -5,7 +5,7 @@
 //   audio=<url> timeline=<url>   explicit sources
 //   preset=0 chains=65536 iters=16 decay=0.9 res=1 lookahead=0.03
 //   t=<seconds>              start position
-//   follow=0                 disable camera follow
+//   follow=1                 enable camera follow (off by default: its random re-framing wobbles the view)
 //   clock=manual             (testing) time is set via window.__setTime(t), not audio
 
 import { createRenderer, WebGPUUnavailable } from './renderer/renderer.js';
@@ -77,7 +77,7 @@ function followCamera(modFlame) {
   const nowMs = performance.now();
   const dt = Math.min(0.1, (nowMs - follow.wall) / 1000);
   follow.wall = nowMs;
-  if (q.get('follow') === '0') return;
+  if (q.get('follow') !== '1') return;
   if (nowMs - follow.last > REFRAME_MS) {
     follow.last = nowMs;
     follow.target = autoFrame({ ...modFlame, camera: base.camera }, canvas.clientWidth / canvas.clientHeight, 0.75, 0.02, 0.98, 6000);
