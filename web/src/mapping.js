@@ -86,7 +86,7 @@ export const MAPPINGS = [
   { src: 'kick', target: 'brightness', amount: 1, curve: 'quad', out: [1, 3.2], impulse: { attack: 0.008, release: 0.2 } },
   { src: 'beat', target: 'paletteKick', amount: 1, out: [0, 0.06], impulse: { attack: 0.01, release: 0.25 } },
   { src: 'snare', target: 'paletteKick', amount: 1 },
-  { src: 'intensity', target: 'spin', amount: 1, curve: 'exp', out: [0.02, 1.5] },
+  { src: 'intensity', target: 'spin', amount: 1, curve: 'exp', out: [0.12, 2.2] },
   { src: 'hat', target: 'juliaJitter', amount: 1 },
   { src: 'chromaPeak', target: 'hue', amount: 1 },
   { src: 'bassPitch', target: 'xformRotate', amount: 1 },

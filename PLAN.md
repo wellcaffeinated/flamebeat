@@ -352,3 +352,6 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
     per frame (wall dt), so trails last the same at any fps; 0 = clear every
     frame. Slider in the bar (0..3 s, quadratic), `?fade=`, saved in
     localStorage; `?decay=` still forces a fixed per-frame decay.
+- 2026-10-11: intensity -> spin range 0.12..2.2 rad/s (exponential). With the
+  spin envelope (attack 0.5 s) that gives 0.12..2.03 rad/s over Thirteen TeV,
+  0.12..0.57 in the quiet first 30 s.
