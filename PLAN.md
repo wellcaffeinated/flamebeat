@@ -355,3 +355,17 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
 - 2026-10-11: intensity -> spin range 0.12..2.2 rad/s (exponential). With the
   spin envelope (attack 0.5 s) that gives 0.12..2.03 rad/s over Thirteen TeV,
   0.12..0.57 in the quiet first 30 s.
+- 2026-10-11: More route targets to experiment with: final swirl (adds an
+  identity final xform if a preset has none), transform scale / offset
+  (offset pushes along the xform's own translation), variation mix (swaps
+  weight between each multi-variation xform's variations), transform opacity,
+  blend -> sinusoidal / polar / spiral / horseshoe, colour speed, gamma,
+  vibrancy, fade time (log2 multiplier on the fade slider). Per-xform slots in
+  `XFORM_SLOTS` (preset `mod` overrides). Four starter routes at amount 0:
+  sub -> final swirl, bass -> transform scale, intensity -> fade time,
+  snare -> colour speed. Each target checked headless at its range limit on
+  the teal preset: all change the image; swirl / spiral / offset are strong,
+  gamma / vibrancy / opacity subtle. All targets neutral = preset unchanged.
+  Default iterations 16 -> **178 per chain per frame** (65536 x 178 x 60 fps
+  ~ 700 M iter/s, user request); not verified on a real GPU, and headless
+  checks pass `iters` explicitly (SwiftShader does ~4 M iter/s).

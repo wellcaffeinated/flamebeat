@@ -21,7 +21,7 @@
 // Envelopes run on *media* time (t - tPrev), so pause freezes the visuals,
 // playbackRate changes scale them correctly, and seeks reset them.
 
-import { clone, rotateAffine, clampContractive } from './flame.js';
+import { clone, rotateAffine, scaleAffine, clampContractive } from './flame.js';
 
 /**
  * Response curves, 0..1 -> 0..1. Anything steeper than linear keeps quiet
@@ -75,7 +75,29 @@ export const TARGETS = {
   hue: { label: 'hue rotate', neutral: 0, out: [0, 1] },
   juliaJitter: { label: 'julia blend', neutral: 0, out: [0, 0.3] },
   xformRotate: { label: 'transform rotate', neutral: 0, out: [-0.5, 0.5] },
+  // geometry
+  finalSwirl: { label: 'final swirl', neutral: 0, out: [0, 0.6] },
+  xformScale: { label: 'transform scale', neutral: 1, out: [0.8, 1.2] },
+  xformOffset: { label: 'transform offset', neutral: 0, out: [-0.3, 0.3] },
+  varMix: { label: 'variation mix', neutral: 0, out: [0, 1] },
+  opacity: { label: 'transform opacity', neutral: 1, out: [0.15, 1] },
+  sinusoidal: { label: 'blend → sinusoidal', neutral: 0, out: [0, 0.5] },
+  polar: { label: 'blend → polar', neutral: 0, out: [0, 0.5] },
+  spiral: { label: 'blend → spiral', neutral: 0, out: [0, 0.5] },
+  horseshoe: { label: 'blend → horseshoe', neutral: 0, out: [0, 0.5] },
+  // colour + tone
+  colorSpeed: { label: 'colour speed', neutral: 0, out: [0, 0.5] },
+  gamma: { label: 'gamma', neutral: 1, out: [0.6, 1.6], env: { attack: 0.3, release: 0.8 } },
+  vibrancy: { label: 'vibrancy', neutral: 0, out: [-0.5, 0.15] },
+  // log2 multiplier on the fade slider: -2 = a quarter as long, +2 = four times
+  fade: { label: 'fade time', neutral: 0, out: [-2, 2], env: { attack: 0.5, release: 1.5 } },
 };
+
+/** Which xform each per-transform target acts on (a preset's `mod` overrides these). */
+const XFORM_SLOTS = (n) => ({
+  spin: 0, kick: Math.min(1, n - 1), bass: Math.min(1, n - 1), hat: n - 1,
+  scale: 0, offset: n - 1, opacity: n - 1, blend: Math.min(1, n - 1),
+});
 
 // Beats show as light and colour, not motion: no zoom pulse, no transform
 // weight bump, and the iteration budget stays fixed (zoomPulse, weightBump and
@@ -90,7 +112,21 @@ export const MAPPINGS = [
   { src: 'hat', target: 'juliaJitter', amount: 1 },
   { src: 'chromaPeak', target: 'hue', amount: 1 },
   { src: 'bassPitch', target: 'xformRotate', amount: 1 },
+  // to experiment with: off (amount 0) until a slider is moved
+  { src: 'sub', target: 'finalSwirl', amount: 0 },
+  { src: 'bass', target: 'xformScale', amount: 0 },
+  { src: 'intensity', target: 'fade', amount: 0 },
+  { src: 'snare', target: 'colorSpeed', amount: 0 },
 ];
+
+/** Cross-fade an xform's variations toward `name` by j (0..0.9). */
+function blendToward(x, name, j) {
+  j = Math.min(0.9, j);
+  const v = { ...x.vars };
+  for (const k of Object.keys(v)) v[k] *= 1 - j;
+  v[name] = (v[name] ?? 0) + j;
+  x.vars = v;
+}
 
 /** Expand a route row into the full form the Mapper runs (see top of file). */
 export function resolve(row, i = 0) {
@@ -249,15 +285,17 @@ export class Mapper {
 
 /**
  * Apply modulation slots to a copy of the base preset.
- * Returns { flame, itersScale, paletteOffset, hue }.
- * A preset may name which xforms receive which modulation via `mod`:
- *   mod: { spin: 0, kick: 1, bass: 1, hat: 2 }  (indices; defaults shown)
+ * Returns { flame, itersScale, paletteOffset, hue, fadeScale }.
+ * A preset may name which xforms receive which modulation via `mod`
+ * (indices; defaults in XFORM_SLOTS):
+ *   mod: { spin: 0, kick: 1, bass: 1, hat: 2, scale: 0, offset: 2, opacity: 2, blend: 1 }
+ * Every slot at its neutral value leaves the preset untouched.
  */
 export function applyMods(base, mods, opts = MAP_DEFAULTS) {
   const f = clone(base);
   const xs = f.xforms;
   const n = xs.length;
-  const idx = { spin: 0, kick: Math.min(1, n - 1), bass: Math.min(1, n - 1), hat: n - 1, ...(base.mod ?? {}) };
+  const idx = { ...XFORM_SLOTS(n), ...(base.mod ?? {}) };
 
   // routes can be amplified or inverted from the UI, so clamp every slot to a safe range
   if (mods.brightness != null) f.brightness *= Math.max(0, mods.brightness);
@@ -267,19 +305,51 @@ export function applyMods(base, mods, opts = MAP_DEFAULTS) {
   if (mods.weightBump) xs[idx.kick].weight *= Math.max(0.05, 1 + mods.weightBump);
   if (mods.zoomPulse) f.camera = { ...f.camera, zoom: f.camera.zoom * Math.max(0.2, 1 + mods.zoomPulse) };
 
-  if (mods.juliaJitter > 0) {
-    const x = xs[idx.hat];
-    const j = Math.min(0.9, mods.juliaJitter);
-    const v = { ...x.vars };
-    for (const k of Object.keys(v)) v[k] *= 1 - j;
-    v.julia = (v.julia ?? 0) + j;
-    x.vars = v;
+  if (mods.juliaJitter > 0) blendToward(xs[idx.hat], 'julia', mods.juliaJitter);
+  for (const name of ['sinusoidal', 'polar', 'spiral', 'horseshoe']) {
+    if (mods[name] > 0) blendToward(xs[idx.blend], name, mods[name]);
   }
+
+  if (mods.xformScale != null && mods.xformScale !== 1) {
+    xs[idx.scale].affine = scaleAffine(xs[idx.scale].affine, Math.min(2, Math.max(0.2, mods.xformScale)));
+  }
+  if (mods.xformOffset) {
+    // push the xform's translation along its own direction (x axis if it has none)
+    const a = [...xs[idx.offset].affine];
+    const len = Math.hypot(a[2], a[5]);
+    const [ux, uy] = len > 1e-6 ? [a[2] / len, a[5] / len] : [1, 0];
+    const d = Math.min(1, Math.max(-1, mods.xformOffset));
+    a[2] += ux * d; a[5] += uy * d;
+    xs[idx.offset].affine = a;
+  }
+  if (mods.varMix > 0) {
+    // swap weight between an xform's variations: largest <-> smallest at varMix 1
+    const t = Math.min(1, mods.varMix);
+    for (const x of xs) {
+      const ents = Object.entries(x.vars ?? {});
+      if (ents.length < 2) continue;
+      const w = ents.map(([, v]) => v);
+      const rev = [...w].reverse();
+      x.vars = Object.fromEntries(ents.map(([k], i) => [k, w[i] + (rev[i] - w[i]) * t]));
+    }
+  }
+  if (mods.opacity != null && mods.opacity !== 1) xs[idx.opacity].opacity = Math.min(1, Math.max(0.02, mods.opacity));
+  if (mods.finalSwirl) {
+    // presets without a final transform get an identity one (colorSpeed 0: colours unchanged)
+    f.final ??= { color: 0, colorSpeed: 0, affine: [1, 0, 0, 0, 1, 0], vars: { linear: 1 } };
+    f.final.vars = { ...f.final.vars, swirl: Math.max(-1, Math.min(1.5, (f.final.vars.swirl ?? 0) + mods.finalSwirl)) };
+  }
+  if (mods.colorSpeed) {
+    for (const x of xs) x.colorSpeed = Math.min(1, Math.max(0.02, (x.colorSpeed ?? 0.5) + mods.colorSpeed));
+  }
+  if (mods.gamma != null && mods.gamma !== 1) f.gamma *= Math.min(3, Math.max(0.3, mods.gamma));
+  if (mods.vibrancy) f.vibrancy = Math.min(1, Math.max(0, f.vibrancy + mods.vibrancy));
 
   // keep the shape from blowing up
   for (const x of xs) x.affine = clampContractive(x.affine, opts.maxGain ?? 0.98);
 
   const paletteOffset = (mods.paletteKick ?? 0) + (mods.palettePos ?? 0);
   const hue = (((mods.hue ?? 0) % 1) + 1) % 1;
-  return { flame: f, itersScale: Math.min(4, Math.max(0.05, mods.iters ?? 1)), paletteOffset, hue };
+  const fadeScale = Math.pow(2, Math.min(4, Math.max(-4, mods.fade ?? 0)));
+  return { flame: f, itersScale: Math.min(4, Math.max(0.05, mods.iters ?? 1)), paletteOffset, hue, fadeScale };
 }

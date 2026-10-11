@@ -3,7 +3,7 @@
 // URL params:
 //   track=Funkorama          load ../assets/audio/<track>.mp3 + timelines/<track>.json
 //   audio=<url> timeline=<url>   explicit sources
-//   preset=0 chains=65536 iters=16 res=1 lookahead=0.03
+//   preset=0 chains=65536 iters=178 res=1 lookahead=0.03   (65536 x 178 x 60 fps ~ 700 M iter/s)
 //   fade=0.15               trail fade time constant in seconds (0 = clear every frame); also the fade slider
 //   decay=0.9               (legacy) fixed per-frame decay instead of a fade time
 //   t=<seconds>              start position
@@ -34,7 +34,7 @@ $('routes-btn').addEventListener('click', () => routesPanel.toggle());
 
 const state = {
   presetIndex: num('preset', 0) % presets.length,
-  itersPerThread: num('iters', 16),
+  itersPerThread: num('iters', 178),
   decay: q.has('decay') ? num('decay', 0.9) : null,   // fixed per-frame decay overrides the fade time
   fade: num('fade', loadFade()),
   lastFrameMs: null,
@@ -168,24 +168,25 @@ audio.addEventListener('seeked', () => state.mapper?.update(now()));
 
 // ---------------------------------------------------------------- frame loop
 let lastMods = {};
-function frameDecay() {
+function frameDecay(fadeScale = 1) {
   const nowMs = performance.now();
   const dt = state.lastFrameMs == null ? 1 / 60 : Math.min(0.25, (nowMs - state.lastFrameMs) / 1000);
   state.lastFrameMs = nowMs;
   if (state.decay != null) return state.decay;
-  return state.fade <= 0 ? 0 : Math.exp(-dt / state.fade);
+  const fade = state.fade * fadeScale;   // the 'fade time' route scales the slider value
+  return fade <= 0 ? 0 : Math.exp(-dt / fade);
 }
 function draw() {
   const t = now();
-  let flame = base, itersScale = 1, paletteOffset = 0, hue = 0;
+  let flame = base, itersScale = 1, paletteOffset = 0, hue = 0, fadeScale = 1;
   if (state.mapper) {
     lastMods = state.mapper.update(t);
-    ({ flame, itersScale, paletteOffset, hue } = applyMods(base, lastMods, mapOpts));
+    ({ flame, itersScale, paletteOffset, hue, fadeScale } = applyMods(base, lastMods, mapOpts));
     followCamera({ ...flame, camera: base.camera });
   }
   const its = renderer.render(flame, {
     itersPerThread: state.itersPerThread * itersScale,
-    decay: frameDecay(),
+    decay: frameDecay(fadeScale),
     paletteOffset,
     hue,
   });
