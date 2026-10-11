@@ -176,7 +176,7 @@ export class FlameRenderer {
     f.set([flame.brightness, flame.gamma, flame.vibrancy, k2], 12);
     const bg = flame.background ?? [0, 0, 0];
     f.set([bg[0], bg[1], bg[2], opts.paletteOffset ?? 0], 16);
-    f.set([decay, flame.juliaAtan === 'xy' ? 1 : 0, 0, 0], 20);
+    f.set([decay, flame.juliaAtan === 'xy' ? 1 : 0, opts.hue ?? 0, 0], 20);
     this.device.queue.writeBuffer(this.paramBuf, 0, this.paramData);
   }
 
@@ -234,7 +234,7 @@ export class FlameRenderer {
 
   /**
    * Render one frame.
-   * opts: { itersPerThread, decay, paletteOffset }
+   * opts: { itersPerThread, decay, paletteOffset, hue }
    */
   render(flame, opts = {}) {
     if (this.lost) return;
@@ -245,6 +245,7 @@ export class FlameRenderer {
       itersPerThread: Math.max(1, Math.round(opts.itersPerThread ?? this.itersPerThread)),
       decay: opts.decay ?? 0.9,
       paletteOffset: opts.paletteOffset ?? 0,
+      hue: opts.hue ?? 0,
     };
     this.writeParams(flame, o);
 

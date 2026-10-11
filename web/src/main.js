@@ -3,7 +3,9 @@
 // URL params:
 //   track=Funkorama          load ../assets/audio/<track>.mp3 + timelines/<track>.json
 //   audio=<url> timeline=<url>   explicit sources
-//   preset=0 chains=65536 iters=16 decay=0.9 res=1 lookahead=0.03
+//   preset=0 chains=65536 iters=16 res=1 lookahead=0.03
+//   fade=0.15               trail fade time constant in seconds (0 = clear every frame); also the fade slider
+//   decay=0.9               (legacy) fixed per-frame decay instead of a fade time
 //   t=<seconds>              start position
 //   follow=1                 enable camera follow (off by default: its random re-framing wobbles the view)
 //   clock=manual             (testing) time is set via window.__setTime(t), not audio
@@ -33,13 +35,35 @@ $('routes-btn').addEventListener('click', () => routesPanel.toggle());
 const state = {
   presetIndex: num('preset', 0) % presets.length,
   itersPerThread: num('iters', 16),
-  decay: num('decay', 0.9),
+  decay: q.has('decay') ? num('decay', 0.9) : null,   // fixed per-frame decay overrides the fade time
+  fade: num('fade', loadFade()),
+  lastFrameMs: null,
   frames: 0, itersWindow: 0, tWindow: performance.now(), fps: 0, ips: 0,
   timeline: null,
   mapper: null,
   manualT: q.get('clock') === 'manual' ? num('t', 0) : null,
 };
 const mapOpts = { ...MAP_DEFAULTS, lookahead: num('lookahead', MAP_DEFAULTS.lookahead) };
+
+// fade time constant (s): the histogram is scaled by exp(-dt / fade) each frame,
+// so trails last the same time at any frame rate. 0 = only the current frame.
+function loadFade() {
+  try { const v = Number(localStorage.getItem('flamebeat.fade')); if (localStorage.getItem('flamebeat.fade') != null && Number.isFinite(v)) return v; } catch { /* storage blocked */ }
+  return 0.15;
+}
+const fadeInput = $('fade'), fadeOut = $('fade-val');
+const FADE_MAX = 3;   // slider position u -> FADE_MAX * u^2 seconds: fine control near 0
+function showFade() {
+  fadeInput.value = Math.sqrt(state.fade / FADE_MAX);
+  fadeOut.textContent = state.fade === 0 ? 'off' : `${state.fade < 1 ? state.fade.toFixed(2) : state.fade.toFixed(1)} s`;
+}
+fadeInput.addEventListener('input', () => {
+  state.fade = Math.round(FADE_MAX * Number(fadeInput.value) ** 2 * 100) / 100;
+  showFade();
+  try { localStorage.setItem('flamebeat.fade', String(state.fade)); } catch { /* ignore */ }
+});
+fadeInput.addEventListener('dblclick', () => { state.fade = 0.15; showFade(); fadeInput.dispatchEvent(new Event('input')); });
+showFade();
 
 function fail(text) {
   msg.hidden = false;
@@ -144,18 +168,26 @@ audio.addEventListener('seeked', () => state.mapper?.update(now()));
 
 // ---------------------------------------------------------------- frame loop
 let lastMods = {};
+function frameDecay() {
+  const nowMs = performance.now();
+  const dt = state.lastFrameMs == null ? 1 / 60 : Math.min(0.25, (nowMs - state.lastFrameMs) / 1000);
+  state.lastFrameMs = nowMs;
+  if (state.decay != null) return state.decay;
+  return state.fade <= 0 ? 0 : Math.exp(-dt / state.fade);
+}
 function draw() {
   const t = now();
-  let flame = base, itersScale = 1, paletteOffset = 0;
+  let flame = base, itersScale = 1, paletteOffset = 0, hue = 0;
   if (state.mapper) {
     lastMods = state.mapper.update(t);
-    ({ flame, itersScale, paletteOffset } = applyMods(base, lastMods, mapOpts));
+    ({ flame, itersScale, paletteOffset, hue } = applyMods(base, lastMods, mapOpts));
     followCamera({ ...flame, camera: base.camera });
   }
   const its = renderer.render(flame, {
     itersPerThread: state.itersPerThread * itersScale,
-    decay: state.decay,
+    decay: frameDecay(),
     paletteOffset,
+    hue,
   });
   overlay.draw(t, state.timeline, state.mapper ?? { opts: mapOpts, mappings: [], env: new Map() });
   routesPanel.draw(state.mapper);

@@ -340,3 +340,15 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   removed; `palettePos` is now added to the palette offset directly). On the
   Thirteen TeV track it switches ~134x/min (median hold 0.20 s), mostly A, C,
   F, E. Checked headless: C / E / A frames give visibly different colouring.
+- 2026-10-11: Accent pass, at the user's request.
+  - **Hue rotate** target (shader: CSS hue-rotate matrix on each palette
+    colour, `misc.z`, turns). Chroma peak now drives hue instead of palette
+    position: 12 pitch classes = 12 hues 30 deg apart (C = original teal,
+    E magenta, A lime, checked headless). Palette position stays available.
+  - intensity -> spin: exponential curve, 0.02..1.5 rad/s (was ^1.5,
+    0.03..0.55); 0.05..0.8 over the 30-90 s groove of Thirteen TeV.
+  - intensity -> brightness (quadratic, x0.6..1.8) added next to volume and kick.
+  - **Fade time** replaces the fixed per-frame decay: histogram x exp(-dt/fade)
+    per frame (wall dt), so trails last the same at any fps; 0 = clear every
+    frame. Slider in the bar (0..3 s, quadratic), `?fade=`, saved in
+    localStorage; `?decay=` still forces a fixed per-frame decay.

@@ -72,6 +72,7 @@ export const TARGETS = {
   weightBump: { label: 'transform weight', neutral: 0, out: [0, 1.6] },
   paletteKick: { label: 'palette shift', neutral: 0, out: [0, 0.12] },
   palettePos: { label: 'palette position', neutral: 0, out: [0, 1] },
+  hue: { label: 'hue rotate', neutral: 0, out: [0, 1] },
   juliaJitter: { label: 'julia blend', neutral: 0, out: [0, 0.3] },
   xformRotate: { label: 'transform rotate', neutral: 0, out: [-0.5, 0.5] },
 };
@@ -81,12 +82,13 @@ export const TARGETS = {
 // iters remain available as targets in the route editor).
 export const MAPPINGS = [
   { src: 'volume', target: 'brightness', amount: 1 },
+  { src: 'intensity', target: 'brightness', amount: 1, curve: 'quad', out: [0.6, 1.8] },
   { src: 'kick', target: 'brightness', amount: 1, curve: 'quad', out: [1, 3.2], impulse: { attack: 0.008, release: 0.2 } },
   { src: 'beat', target: 'paletteKick', amount: 1, out: [0, 0.06], impulse: { attack: 0.01, release: 0.25 } },
   { src: 'snare', target: 'paletteKick', amount: 1 },
-  { src: 'intensity', target: 'spin', amount: 1 },
+  { src: 'intensity', target: 'spin', amount: 1, curve: 'exp', out: [0.02, 1.5] },
   { src: 'hat', target: 'juliaJitter', amount: 1 },
-  { src: 'chromaPeak', target: 'palettePos', amount: 1 },
+  { src: 'chromaPeak', target: 'hue', amount: 1 },
   { src: 'bassPitch', target: 'xformRotate', amount: 1 },
 ];
 
@@ -247,7 +249,7 @@ export class Mapper {
 
 /**
  * Apply modulation slots to a copy of the base preset.
- * Returns { flame, itersScale, paletteOffset }.
+ * Returns { flame, itersScale, paletteOffset, hue }.
  * A preset may name which xforms receive which modulation via `mod`:
  *   mod: { spin: 0, kick: 1, bass: 1, hat: 2 }  (indices; defaults shown)
  */
@@ -278,5 +280,6 @@ export function applyMods(base, mods, opts = MAP_DEFAULTS) {
   for (const x of xs) x.affine = clampContractive(x.affine, opts.maxGain ?? 0.98);
 
   const paletteOffset = (mods.paletteKick ?? 0) + (mods.palettePos ?? 0);
-  return { flame: f, itersScale: Math.min(4, Math.max(0.05, mods.iters ?? 1)), paletteOffset };
+  const hue = (((mods.hue ?? 0) % 1) + 1) % 1;
+  return { flame: f, itersScale: Math.min(4, Math.max(0.05, mods.iters ?? 1)), paletteOffset, hue };
 }

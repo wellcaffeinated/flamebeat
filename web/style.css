@@ -10,6 +10,9 @@ canvas#debug { position: fixed; right: 8px; top: 8px; border-radius: 6px; }
 .btn { cursor: pointer; padding: 4px 10px; border: 1px solid #555; border-radius: 4px; background: #111; }
 .btn:hover { border-color: #999; }
 #status { color: #aaa; }
+.fade { display: flex; align-items: center; gap: 6px; color: #aaa; }
+.fade input { width: 110px; accent-color: #d8f; }
+.fade output { width: 4.5em; white-space: nowrap; font-family: ui-monospace, monospace; color: #ccc; }
 .keys { color: #777; font-size: 12px; margin-left: auto; }
 button.btn { color: inherit; font: inherit; }
 #routes { position: fixed; left: 8px; top: 28px; max-height: calc(100vh - 110px); overflow-y: auto; padding: 8px 10px; border-radius: 6px; background: rgba(0,0,0,.72); font-size: 12px; }

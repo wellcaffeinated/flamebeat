@@ -24,7 +24,7 @@ struct Params {
   cam:  vec4f,   // centre x, centre y, zoom, rotation (rad)
   tone: vec4f,   // brightness, gamma, vibrancy, k2 (density scale)
   bg:   vec4f,   // background rgb, palette offset
-  misc: vec4f,   // decay, julia angle convention (1 = atan2(x, y)), unused...
+  misc: vec4f,   // decay, julia angle convention (1 = atan2(x, y)), hue rotation (turns), unused
 };
 
 struct Xform {
@@ -115,6 +115,12 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let ca = cos(P.cam.w);
   let sa = sin(P.cam.w);
   let scale = P.cam.z * f32(h) * 0.5;
+  // hue rotation of palette colours (CSS hue-rotate matrix, keeps luminance)
+  let ha = cos(P.misc.z * 2.0 * PI);
+  let hb = sin(P.misc.z * 2.0 * PI);
+  let hr = vec3f(0.213 + 0.787 * ha - 0.213 * hb, 0.715 - 0.715 * ha - 0.715 * hb, 0.072 - 0.072 * ha + 0.928 * hb);
+  let hg = vec3f(0.213 - 0.213 * ha + 0.143 * hb, 0.715 + 0.285 * ha + 0.140 * hb, 0.072 - 0.072 * ha - 0.283 * hb);
+  let hbl = vec3f(0.213 - 0.213 * ha - 0.787 * hb, 0.715 - 0.715 * ha + 0.715 * hb, 0.072 + 0.928 * ha + 0.072 * hb);
 
   for (var k = 0u; k < P.iter.x; k++) {
     // pick a transform by cumulative weight
@@ -144,7 +150,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     if (xf.w2.w < 1.0 && rand() > xf.w2.w) { continue; }   // opacity
     let idx = (u32(py) * w + u32(px)) * 4u;
     let pc = fract(cq + P.bg.w);
-    let col = palette[min(u32(pc * 256.0), 255u)].rgb;
+    let pal = palette[min(u32(pc * 256.0), 255u)].rgb;
+    let col = clamp(vec3f(dot(hr, pal), dot(hg, pal), dot(hbl, pal)), vec3f(0.0), vec3f(1.0));
     atomicAdd(&hist[idx], u32(DENS_ONE));
     atomicAdd(&hist[idx + 1u], u32(col.r * COLOR_ONE + 0.5));
     atomicAdd(&hist[idx + 2u], u32(col.g * COLOR_ONE + 0.5));

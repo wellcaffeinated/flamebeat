@@ -21,8 +21,10 @@ await page.keyboard.press('m');
 assert.equal(await page.locator('#routes').isVisible(), true);
 const n0 = await page.locator('#routes .route').count();
 console.log('rows:', n0);
-// kick -> brightness shares the target; silence it so row 0 can be checked alone
-await row(1).locator('input[type=range]').fill('0');
+// other routes share the brightness target; silence them so row 0 can be checked alone
+for (let i = 1; i < n0; i++) {
+  if (await row(i).locator('select').nth(1).inputValue() === 'brightness') await row(i).locator('input[type=range]').fill('0');
+}
 const b1 = (await mods()).brightness;
 
 // amount 0 on volume->brightness => neutral brightness 1
