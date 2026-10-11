@@ -1,10 +1,11 @@
 // Route editor (toggle with M): one row per signal -> parameter route, with a
-// source select, a target select and an amount slider. Edits apply live via
+// source select, a target select, a response curve and an amount slider. Edits apply live via
 // mapper.setRoutes() and are remembered in localStorage.
 
-import { SOURCES, TARGETS, MAPPINGS } from './mapping.js';
+import { SOURCES, TARGETS, MAPPINGS, CURVES, resolve } from './mapping.js';
 
-const STORE = 'flamebeat.routes.v1';
+// v2: new default routes (beats -> brightness/palette, no zoom or iteration changes)
+const STORE = 'flamebeat.routes.v2';
 
 export function loadRoutes() {
   try {
@@ -60,8 +61,12 @@ export class RoutesPanel {
 
     this.rows.forEach((row, i) => {
       // changing source/target drops per-row envelope overrides so the new
-      // pairing gets that source's and target's own defaults
-      const fresh = (patch) => { this.rows[i] = { src: row.src, target: row.target, amount: row.amount ?? 1, ...patch }; this.changed(true); };
+      // pairing gets that source's and target's own defaults (a chosen curve is kept)
+      const fresh = (patch) => {
+        const keep = typeof row.curve === 'string' ? { curve: row.curve } : {};
+        this.rows[i] = { src: row.src, target: row.target, amount: row.amount ?? 1, ...keep, ...patch };
+        this.changed(true);
+      };
       const val = el('output', { textContent: (row.amount ?? 1).toFixed(2) });
       const slider = el('input', { type: 'range', min: -2, max: 2, step: 0.05, value: row.amount ?? 1, title: 'amount' });
       slider.addEventListener('input', () => {
@@ -70,13 +75,23 @@ export class RoutesPanel {
         this.changed();
       });
       slider.addEventListener('dblclick', () => { slider.value = 1; slider.dispatchEvent(new Event('input')); });
+      // curve: '' = the pairing's default (named in the label); circular sources have none
+      const def = resolve({ src: row.src, target: row.target });
+      const defLabel = typeof def.curve === 'number' ? `default (^${def.curve})` : `default (${CURVES[def.curve]?.label ?? 'linear'})`;
+      const curve = select({ '': { label: defLabel }, ...CURVES }, row.curve ?? '', (v) => {
+        if (v) row.curve = v; else delete row.curve;
+        this.changed();
+      });
+      curve.className = 'curve';
+      curve.title = 'response curve';
+      if (def.circular) { curve.disabled = true; curve.title = 'circular source: no curve'; }
       const meter = el('span', { className: 'meter' }, el('i'));
       this.meters.push(meter.firstChild);
       r.append(el('div', { className: 'route' },
         select(SOURCES, row.src, (v) => fresh({ src: v })),
         el('span', { className: 'arrow', textContent: '→' }),
         select(TARGETS, row.target, (v) => fresh({ target: v })),
-        slider, val, meter,
+        curve, slider, val, meter,
         Object.assign(el('button', { textContent: '×', title: 'remove route' }),
           { onclick: () => { this.rows.splice(i, 1); this.changed(true); } })));
     });

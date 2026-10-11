@@ -18,6 +18,7 @@ button.btn { color: inherit; font: inherit; }
 #routes .route { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
 #routes select, #routes button { background: #111; color: #ddd; border: 1px solid #444; border-radius: 3px; font: inherit; padding: 2px 4px; }
 #routes select { width: 140px; }
+#routes select.curve { width: 118px; }
 #routes button { cursor: pointer; }
 #routes button:hover, #routes select:hover { border-color: #999; }
 #routes .arrow { color: #777; }

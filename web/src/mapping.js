@@ -7,7 +7,8 @@
 //            { impulse: 'kick', attack, release } decaying impulse from events
 //            { derived: 'chromaPos' | 'bassPitch' }
 //   gain     multiply the source              (default 1)
-//   curve    power applied after gain+clamp   (default 1, >1 = more contrast)
+//   curve    shape applied after gain+clamp: a CURVES name ('quad', 'exp', ...)
+//            or a number (power; default 1, >1 = more contrast)
 //   attack / release   one-pole envelope time constants in seconds (media time)
 //   out      [min, max]  the 0..1 value is mapped linearly onto this range
 //   amount   scales the route's deviation from the target's neutral value
@@ -20,6 +21,25 @@
 // playbackRate changes scale them correctly, and seeks reset them.
 
 import { clone, rotateAffine, clampContractive } from './flame.js';
+
+/**
+ * Response curves, 0..1 -> 0..1. Anything steeper than linear keeps quiet
+ * parts low and saves the range for peaks, so changes near the top stand out.
+ */
+const EXP_K = 5;
+export const CURVES = {
+  sqrt: { label: 'square root', fn: Math.sqrt },
+  linear: { label: 'linear', fn: (x) => x },
+  quad: { label: 'quadratic', fn: (x) => x * x },
+  cubic: { label: 'cubic', fn: (x) => x * x * x },
+  exp: { label: 'exponential', fn: (x) => Math.expm1(EXP_K * x) / Math.expm1(EXP_K) },
+};
+
+/** Apply a route's curve (CURVES name, power, or undefined = linear) to a 0..1 value. */
+export function shape(x, curve) {
+  if (typeof curve === 'number') return Math.pow(x, curve);
+  return CURVES[curve]?.fn(x) ?? x;
+}
 
 /** Signals a route can read. `env` is the default envelope for that kind of signal. */
 export const SOURCES = {
@@ -53,13 +73,15 @@ export const TARGETS = {
   xformRotate: { label: 'transform rotate', neutral: 0, out: [-0.5, 0.5] },
 };
 
+// Beats show as light and colour, not motion: no zoom pulse, no transform
+// weight bump, and the iteration budget stays fixed (zoomPulse, weightBump and
+// iters remain available as targets in the route editor).
 export const MAPPINGS = [
   { src: 'volume', target: 'brightness', amount: 1 },
-  { src: 'intensity', target: 'spin', amount: 1 },
-  { src: 'intensity', target: 'iters', amount: 1 },
-  { src: 'kick', target: 'zoomPulse', amount: 1, impulse: { attack: 0.008, release: 0.12 } },
-  { src: 'kick', target: 'weightBump', amount: 1, impulse: { attack: 0.008, release: 0.18 } },
+  { src: 'kick', target: 'brightness', amount: 1, curve: 'quad', out: [1, 3.2], impulse: { attack: 0.008, release: 0.2 } },
+  { src: 'beat', target: 'paletteKick', amount: 1, out: [0, 0.06], impulse: { attack: 0.01, release: 0.25 } },
   { src: 'snare', target: 'paletteKick', amount: 1 },
+  { src: 'intensity', target: 'spin', amount: 1 },
   { src: 'hat', target: 'juliaJitter', amount: 1 },
   { src: 'chroma', target: 'palettePos', amount: 1 },
   { src: 'bassPitch', target: 'xformRotate', amount: 1 },
@@ -176,7 +198,7 @@ export class Mapper {
     for (const m of this.mappings) {
       let s = this.source(m.src, t);
       this.signals[m.id] = s;
-      if (!m.circular) s = Math.pow(clamp01(s * (m.gain ?? 1)), m.curve ?? 1);
+      if (!m.circular) s = shape(clamp01(s * (m.gain ?? 1)), m.curve);
 
       // envelope
       let e = this.env.get(m.id);

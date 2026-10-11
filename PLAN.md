@@ -314,3 +314,20 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   a headless render without timeline (decay 0.98) matches the reference by eye.
   With the music on, chroma/snare palette offsets push it toward the peach
   end of the gradient. `just test` and `verify.mjs` pass.
+- 2026-10-11: Second track "MASTER-Thirteen TeV-suncloud-2025-07-19" (user's
+  own, 5:10, ~154 BPM electronic; analysed: 1296 kick / 395 snare / 674 hat,
+  980 notes, 5.8 MB timeline). Volume is heavily compressed (~0.85-1 for most
+  of the track). Measured peak RSS: analyze.py 2.3 GB, plot.py 0.3 GB. An
+  earlier run of the same commands coincided with the shared container
+  running out of memory; it could not be reproduced alone, so heavy steps now
+  run one at a time under an RSS watchdog.
+  Default routes changed at the user's request: beats show as brightness and
+  palette, not motion. Removed kick->zoom pulse, kick->transform weight and
+  intensity->iterations (targets still in the editor). Added kick->brightness
+  (quadratic, x1..3.2; the teal preset's gamma 3.2 flattens smaller ranges)
+  and beat->palette shift (+0..0.06). Routes now take a named response curve
+  (`CURVES`: square root, linear, quadratic, cubic, exponential
+  `expm1(5x)/expm1(5)`) or a power; the route editor has a curve column.
+  localStorage key bumped to `flamebeat.routes.v2` so the new defaults apply.
+  Note: the curve acts before the envelope, so with a frozen clock it only
+  shows after time moves (`tools/routes.mjs` jumps time to check it).
