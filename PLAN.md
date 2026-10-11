@@ -371,3 +371,13 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   checks pass `iters` explicitly (SwiftShader does ~4 M iter/s).
 - 2026-10-11: intensity -> spin range 0.12..10.9 rad/s (exponential); after
   the spin envelope: 0.12..10.0 rad/s over Thirteen TeV (first 30 s up to 2.4).
+- 2026-10-11: "Spin" did not look faster at 10 rad/s. Cause: it rotates the
+  julia xform's *input*, so the shape morphs in place with period 2π rather
+  than rotating; above a few rad/s the fade (0.15 s) averages the morph into a
+  soft ghost (CPU simulation of the trail blur at 0.5 / 2 / 10 rad/s). The user
+  chose to keep the morph: target renamed **morph speed** (key still `spin`).
+  Also, saved routes are full copies (ranges, curves), so changed defaults
+  never reached the browser without "reset to defaults". The route editor now
+  records which defaults the saved routes came from and, when MAPPINGS changes,
+  shows "use new defaults / keep mine" and marks the routes button
+  (`tools/routes.mjs` checks it).

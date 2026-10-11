@@ -72,6 +72,16 @@ await page.waitForTimeout(300);
 await page.screenshot({ path: out });
 await page.locator('#routes button', { hasText: 'reset' }).click();
 assert.equal(await page.evaluate(() => window.__routes.rows[0].src), 'volume'); console.log('reset ok');
+
+// routes saved against older defaults: the panel and the routes button say so
+await page.evaluate(() => localStorage.setItem('flamebeat.routes.v2.defaults', '[]'));
+await page.reload();
+await page.waitForFunction(() => window.__flamebeat?.timeline, null, { timeout: 30000 });
+assert.equal(await page.locator('#routes-btn.stale').count(), 1);
+await page.keyboard.press('m');
+await page.locator('#routes button', { hasText: 'use new defaults' }).click();
+assert.equal(await page.locator('#routes .routes-stale').count(), 0);
+assert.equal(await page.locator('#routes-btn.stale').count(), 0); console.log('stale defaults banner ok');
 console.log(errors.length ? errors : 'no page errors');
 assert.equal(errors.length, 0);
 await browser.close();

@@ -1,11 +1,25 @@
 // Route editor (toggle with M): one row per signal -> parameter route, with a
 // source select, a target select, a response curve and an amount slider. Edits apply live via
-// mapper.setRoutes() and are remembered in localStorage.
+// mapper.setRoutes() and are remembered in localStorage. Saved routes are full
+// copies (ranges, curves), so when the defaults in mapping.js change the panel
+// offers to switch to them instead of silently keeping the old ones.
 
 import { SOURCES, TARGETS, MAPPINGS, CURVES, resolve } from './mapping.js';
 
 // v2: new default routes (beats -> brightness/palette, no zoom or iteration changes)
 const STORE = 'flamebeat.routes.v2';
+const STORE_DEFAULTS = 'flamebeat.routes.v2.defaults';   // MAPPINGS the saved rows were based on
+const DEFAULTS = JSON.stringify(MAPPINGS);
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* ignore */ } },
+};
+
+/** True when routes were saved against different defaults than the current MAPPINGS. */
+export function routesStale() {
+  return store.get(STORE) != null && store.get(STORE_DEFAULTS) !== DEFAULTS;
+}
 
 export function loadRoutes() {
   try {
@@ -16,8 +30,12 @@ export function loadRoutes() {
 }
 
 function saveRoutes(rows) {
-  try { localStorage.setItem(STORE, JSON.stringify(rows)); } catch { /* ignore */ }
+  // the first save records which defaults these routes started from
+  if (store.get(STORE) == null) store.set(STORE_DEFAULTS, DEFAULTS);
+  store.set(STORE, JSON.stringify(rows));
 }
+
+function acceptDefaults() { store.set(STORE_DEFAULTS, DEFAULTS); }
 
 function el(tag, props = {}, ...kids) {
   const e = Object.assign(document.createElement(tag), props);
@@ -58,6 +76,15 @@ export class RoutesPanel {
     r.append(el('div', { className: 'routes-head' },
       el('b', { textContent: 'routes' }),
       el('span', { className: 'hint', textContent: 'source → parameter · amount (double-click = 1)' })));
+    document.getElementById('routes-btn')?.classList.toggle('stale', routesStale());
+    if (routesStale()) {
+      r.append(el('div', { className: 'routes-stale' },
+        el('span', { textContent: 'The default routes changed since these were saved.' }),
+        Object.assign(el('button', { textContent: 'use new defaults' }),
+          { onclick: () => { this.rows = structuredClone(MAPPINGS); acceptDefaults(); this.changed(true); } }),
+        Object.assign(el('button', { textContent: 'keep mine' }),
+          { onclick: () => { acceptDefaults(); this.render(); } })));
+    }
 
     this.rows.forEach((row, i) => {
       // changing source/target drops per-row envelope overrides so the new
@@ -100,7 +127,7 @@ export class RoutesPanel {
       Object.assign(el('button', { textContent: '+ add route' }),
         { onclick: () => { this.rows.push({ src: 'kick', target: 'zoomPulse', amount: 1 }); this.changed(true); } }),
       Object.assign(el('button', { textContent: 'reset to defaults' }),
-        { onclick: () => { this.rows = structuredClone(MAPPINGS); this.changed(true); } })));
+        { onclick: () => { this.rows = structuredClone(MAPPINGS); acceptDefaults(); this.changed(true); } })));
   }
 
   /** Live envelope meters, fed from the mapper each frame. */
