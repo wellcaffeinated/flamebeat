@@ -21,6 +21,8 @@ await page.keyboard.press('m');
 assert.equal(await page.locator('#routes').isVisible(), true);
 const n0 = await page.locator('#routes .route').count();
 console.log('rows:', n0);
+// kick -> brightness shares the target; silence it so row 0 can be checked alone
+await row(1).locator('input[type=range]').fill('0');
 const b1 = (await mods()).brightness;
 
 // amount 0 on volume->brightness => neutral brightness 1
@@ -30,6 +32,19 @@ assert.equal((await mods()).brightness, 1); console.log(`amount 0: brightness ${
 await row(0).locator('input[type=range]').fill('2');
 const b2 = (await mods()).brightness;
 assert.ok(Math.abs((b2 - 1) - 2 * (b1 - 1)) < 1e-6); console.log(`amount 2: brightness ${b2.toFixed(3)}`);
+
+// response curve: it acts before the envelope, which only moves when time
+// does, so compare after time jumps (a jump resets the envelopes)
+const at = async (t) => { await page.evaluate((x) => window.__setTime(x), t); return (await mods()).brightness; };
+const curve = row(0).locator('select.curve');
+const bd = await at(70);
+await curve.selectOption('quad');
+await at(64.4);
+const bq = await at(70);
+assert.ok(Math.abs(bq - bd) > 1e-4); console.log(`curve quad @70 s: brightness ${bd.toFixed(3)} -> ${bq.toFixed(3)}`);
+await curve.selectOption('');
+assert.equal(await page.evaluate(() => 'curve' in window.__routes.rows[0]), false);
+assert.ok(Math.abs(await at(64.4) - b2) < 1e-6); console.log('curve back to default ok');
 
 // retarget: volume -> zoom pulse, brightness goes neutral
 await row(0).locator('select').nth(1).selectOption('zoomPulse');
