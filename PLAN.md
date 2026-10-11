@@ -435,3 +435,15 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   re-analysed (peak RSS 2.0 GB / 1.5 GB). Morph-speed top trimmed to 10.1 so
   the smoother intensity peaks at 10.0 rad/s.
 
+- 2026-10-11: **Tried Essentia arousal** (not integrated). essentia-tensorflow
+  2.1b6.dev1438 (Linux wheel cp314 only, 292 MB) in a throwaway uv env
+  (`uv run --no-project --python 3.14 --with essentia-tensorflow`), MusiCNN
+  embeddings (msd-musicnn-1, 3.2 MB) + DEAM / emoMusic arousal-valence heads
+  (82 KB each). Cost on Thirteen TeV (310 s, 4 CPUs): 4.5 s, peak 1.5 GB; output
+  every 1.5 s (3 s patches), arousal on a 1-9 scale. Result: the models rate the
+  whole track mid-range (DEAM 4.1-6.5, emoMusic 4.4-7.0), call the 0-25 s intro
+  high and the 60-140 s build low, and step up at ~140 s together with valence.
+  Pearson vs new intensity: DEAM +0.04, emoMusic +0.32 (they agree with each
+  other at +0.79). Plot: analysis/out/arousal-vs-intensity-thirteen.png. Likely
+  out of domain (trained on 45 s pop/rock excerpts); left for the user to judge
+  by ear.
