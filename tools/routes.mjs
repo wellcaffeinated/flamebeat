@@ -58,9 +58,19 @@ m = await mods(); console.log(`source high: zoomPulse ${m.zoomPulse.toFixed(3)}`
 
 await page.locator('#routes button', { hasText: 'add route' }).click();
 assert.equal(await page.locator('#routes .route').count(), n0 + 1);
-await row(n0).locator('button').click();
+await row(n0).locator('button', { hasText: '×' }).click();
 assert.equal(await page.locator('#routes .route').count(), n0);
 console.log('add/remove ok');
+
+// help: (?) next to the parameter pins its description under the row; header (?) shows the column legend
+const help = row(0).locator('button.help').nth(1);
+assert.match(await help.getAttribute('title'), /^zoom pulse: Zooms/);   // row 0 was retargeted above
+await help.click();
+assert.match(await page.locator('#routes .route-help').first().textContent(), /^zoom pulse/);
+await help.click();
+assert.equal(await page.locator('#routes .route-help').first().isVisible(), false);
+await page.locator('#routes .routes-head button.help').click();
+assert.equal(await page.locator('#routes .routes-legend').isVisible(), true); console.log('help ok');
 
 // persisted across reload
 await page.reload();

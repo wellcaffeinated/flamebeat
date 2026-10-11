@@ -410,3 +410,10 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   pending the user's ear.
 - 2026-10-11: Smoothing windows offered: 0.1, 0.25, 0.5, 0.75, 1, 2 s (user's choice; a saved
   row with another window keeps it and lists it).
+- 2026-10-11: Route editor help: every source and parameter has a `help` text
+  in mapping.js, shown by a (?) after its select (hover = tooltip, click = pinned
+  under the row), and a header (?) opens a legend for the columns (source ->
+  parameter, curve, smooth, amount, bar). Transforms are numbered from 1 in
+  the help. Texts avoid exact ranges since those keep being tuned. Note: the
+  morph-speed target's base range 0.03..3.0 (was 0.55) was a working-tree edit
+  made outside this session; it went in with commit b365898.

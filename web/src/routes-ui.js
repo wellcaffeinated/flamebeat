@@ -50,6 +50,22 @@ function el(tag, props = {}, ...kids) {
   return e;
 }
 
+const COLUMNS_HELP = [
+  ['source → parameter', 'What drives the change (a signal from the analysed song) and what it changes in the fractal. Several routes can drive the same parameter: their effects add up.'],
+  ['curve', 'Reshapes the source before it is used. Square root lifts quiet parts; quadratic, cubic and exponential keep quiet parts low and save the range for peaks, so big moments stand out more.'],
+  ['smooth', 'Averages a level source over a window centred on now, for a steadier signal that follows phrases instead of single hits. Events (hits, beats) and pitch sources are not averaged.'],
+  ['amount', 'How strongly the route acts: 0 = off, 1 = as designed, 2 = double, negative = the opposite direction. Double-click to reset to 1.'],
+  ['bar', 'The live value of the route after smoothing, 0 to 1.'],
+];
+
+/** A small (?) button: hover shows `text`; click pins it under the row (`show`). */
+function helpButton(text, show) {
+  const b = el('button', { type: 'button', className: 'help', textContent: '?', title: text });
+  b.setAttribute('aria-label', 'help');
+  b.addEventListener('click', () => show(text));
+  return b;
+}
+
 function select(table, value, onChange) {
   const s = el('select');
   for (const [k, v] of Object.entries(table)) s.append(el('option', { value: k, textContent: v.label, selected: k === value }));
@@ -80,9 +96,14 @@ export class RoutesPanel {
     const r = this.root;
     r.replaceChildren();
     this.meters = [];
+    const legend = el('dl', { className: 'routes-legend', hidden: true },
+      ...COLUMNS_HELP.flatMap(([k, v]) => [el('dt', { textContent: k }), el('dd', { textContent: v })]));
+    const legendBtn = el('button', { type: 'button', className: 'help', textContent: '?', title: 'what the columns mean' });
+    legendBtn.addEventListener('click', () => { legend.hidden = !legend.hidden; });
     r.append(el('div', { className: 'routes-head' },
       el('b', { textContent: 'routes' }),
-      el('span', { className: 'hint', textContent: 'source → parameter · amount (double-click = 1)' })));
+      el('span', { className: 'hint', textContent: 'source → parameter · curve · smooth · amount' }),
+      legendBtn), legend);
     document.getElementById('routes-btn')?.classList.toggle('stale', routesStale());
     if (routesStale()) {
       r.append(el('div', { className: 'routes-stale' },
@@ -131,13 +152,21 @@ export class RoutesPanel {
       if (!SOURCES[row.src].src.stream) { smooth.disabled = true; smooth.title = 'events and pitch sources are not averaged'; }
       const meter = el('span', { className: 'meter' }, el('i'));
       this.meters.push(meter.firstChild);
+      // help: hover a (?) for a tooltip, click to pin the text under the row (click again to hide)
+      const helpLine = el('div', { className: 'route-help', hidden: true });
+      const show = (text) => {
+        helpLine.hidden = !helpLine.hidden && helpLine.textContent === text;
+        helpLine.textContent = text;
+      };
       r.append(el('div', { className: 'route' },
         select(SOURCES, row.src, (v) => fresh({ src: v })),
+        helpButton(`${SOURCES[row.src].label}: ${SOURCES[row.src].help}`, show),
         el('span', { className: 'arrow', textContent: '→' }),
         select(TARGETS, row.target, (v) => fresh({ target: v })),
+        helpButton(`${TARGETS[row.target].label}: ${TARGETS[row.target].help}`, show),
         curve, smooth, slider, val, meter,
         Object.assign(el('button', { textContent: '×', title: 'remove route' }),
-          { onclick: () => { this.rows.splice(i, 1); this.changed(true); } })));
+          { onclick: () => { this.rows.splice(i, 1); this.changed(true); } })), helpLine);
     });
 
     r.append(el('div', { className: 'routes-foot' },

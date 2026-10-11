@@ -29,6 +29,12 @@ button.btn { color: inherit; font: inherit; }
 #routes button { cursor: pointer; }
 #routes button:hover, #routes select:hover { border-color: #999; }
 #routes .arrow { color: #777; }
+#routes button.help { width: 18px; height: 18px; padding: 0; border-radius: 50%; font-size: 11px; line-height: 16px; color: #aaa; flex: none; }
+#routes .route-help { margin: 0 0 6px 4px; padding: 4px 8px; max-width: 640px; border-left: 2px solid #d8f; color: #ccc; }
+#routes .route-help[hidden], #routes .routes-legend[hidden] { display: none; }
+#routes .routes-legend { margin: 0 0 8px; padding: 6px 8px; max-width: 640px; border-radius: 4px; background: #1a1a1a; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; }
+#routes .routes-legend dt { color: #d8f; }
+#routes .routes-legend dd { margin: 0; color: #ccc; }
 #routes input[type=range] { width: 120px; accent-color: #d8f; }
 #routes output { width: 3.2em; text-align: right; font-family: ui-monospace, monospace; color: #ccc; }
 #routes .meter { width: 40px; height: 6px; background: #222; border-radius: 3px; overflow: hidden; }
