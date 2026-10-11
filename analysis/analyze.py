@@ -15,6 +15,7 @@ import numpy as np
 from features.beats import DEFAULT_METER, beats, parse_meter
 from features.common import RATE, SR, load
 from features.energy import energy
+from features.intensity import WEIGHTS as INTENSITY_WEIGHTS, intensity
 from features.pitch import bass_f0, chroma, notes
 from features.transients import transients
 from features.volume import volume
@@ -75,7 +76,7 @@ def main(argv=None) -> int:
 
     step("energy")
     en = energy(a, onset_times=np.array([o["t"] for o in tr["onsets"]]))
-    en.pop("_raw_db")
+    band_db = en.pop("_raw_db")
 
     step("chroma")
     ch = chroma(a)
@@ -89,6 +90,12 @@ def main(argv=None) -> int:
         note_events, note_err = notes(a)
         if note_err:
             step(f"  {note_err}")
+
+    step("intensity")
+    inten = intensity(a, tr["drums"], band_db, ch, note_events)
+    en["intensity_v1"] = en["intensity"]          # the old flux/onset/band blend, for comparison
+    en.update(inten)                               # intensity + brightness, rhythm, low, harmony
+    step("  intensity = " + " + ".join(f"{w:g} {k}" for k, w in INTENSITY_WEIGHTS.items()))
 
     continuous = {
         "volume": vol["volume"],

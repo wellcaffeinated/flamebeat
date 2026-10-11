@@ -56,7 +56,8 @@ justfile             common tasks: fetch, analyze, serve
     "volume":   [...],                                  // momentary LUFS mapped to 0..1, plus raw dB in "volume_db"
     "volume_db": [...], "rms_db": [...],                // raw momentary LUFS, 50 ms RMS dBFS
     "drums":    {"kick": [...], "snare": [...], "hat": [...]},   // percussive band-flux envelopes 0..1
-    "energy":   {"sub": [...], "bass": [...], "mid": [...], "high": [...], "flux": [...], "intensity": [...]},
+    "energy":   {"sub": [...], "bass": [...], "mid": [...], "high": [...], "flux": [...], "intensity": [...],
+                 "brightness": [...], "rhythm": [...], "low": [...], "harmony": [...], "intensity_v1": [...]},
     "chroma":   [[12 floats], ...],
     "pitch":    {"bass": {"f0": [...], "conf": [...]}}
   },
@@ -417,3 +418,20 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   the help. Texts avoid exact ranges since those keep being tuned. Note: the
   morph-speed target's base range 0.03..3.0 (was 0.55) was a working-tree edit
   made outside this session; it went in with commit b365898.
+- 2026-10-11: **Intensity rebuilt** to match the user's description of the
+  intense parts: brightest, most rhythmically dense, most bass, most harmonic
+  complexity. `features/intensity.py`: equal-weight mean of brightness (log
+  spectral centroid, quietest 5 % frames floored), rhythm (strength-weighted
+  drum hits/s), low (sub+bass power on one dB scale, not per band) and harmony
+  (normalised chroma entropy x harmonic level, + basic-pitch polyphony), each a
+  centred 3 s average scaled p2..p98; combined, 1 s smoothing, p1..p99.5.
+  Ingredients stored and exposed as sources; old blend kept as
+  `intensity_v1` / "intensity (old)". Diagnostic plots (gitignored):
+  analysis/out/intensity-candidates-thirteen.png, intensity-new-thirteen.png.
+  On Thirteen TeV: low intro to 55 s, step at 56 s, build to ~140 s, plateau
+  with peaks at 170-200 s and 255-280 s; the old one fell in the drumless
+  30-55 s and dipped at bar edges. The 225-250 s breakdown barely dips because
+  brightness and harmony peak there while rhythm and bass drop. Both tracks
+  re-analysed (peak RSS 2.0 GB / 1.5 GB). Morph-speed top trimmed to 10.1 so
+  the smoother intensity peaks at 10.0 rad/s.
+

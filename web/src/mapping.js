@@ -47,7 +47,13 @@ export function shape(x, curve) {
 /** Signals a route can read. `env` is the default envelope for that kind of signal. */
 export const SOURCES = {
   volume: { label: 'volume', help: 'Loudness as you hear it (400 ms window), scaled 0–1 for this track. Heavily compressed songs sit near the top most of the time.', src: { stream: 'volume' }, env: { curve: 1.6, attack: 0.03, release: 0.25 } },
-  intensity: { label: 'intensity', help: 'Overall energy: how much is changing, how many new sounds start, and how loud the bands are, smoothed over about 0.75 s. Follows song sections (intro, build, drop).', src: { stream: 'energy.intensity' }, env: { attack: 0.3, release: 1.0 } },
+  intensity: { label: 'intensity', help: 'How intense the music feels: the average of brightness, rhythmic density, bass weight and harmonic complexity, each over about 3 s. Follows song sections (intro, build, drop) rather than single hits.', src: { stream: 'energy.intensity' }, env: { attack: 0.3, release: 1.0 } },
+  // ingredients of intensity (re-weight them with several routes to one parameter)
+  brightness: { label: 'brightness (timbre)', help: 'How bright the sound is (spectral centroid: more treble = higher), averaged over about 3 s.', src: { stream: 'energy.brightness' }, env: { attack: 0.3, release: 1.0 } },
+  rhythm: { label: 'rhythmic density', help: 'Drum hits per second, weighted by how hard they hit, averaged over about 3 s. High in busy grooves, low when the drums drop out.', src: { stream: 'energy.rhythm' }, env: { attack: 0.3, release: 1.0 } },
+  low: { label: 'bass weight', help: 'How much sub and bass there is (below 250 Hz, one scale for both), averaged over about 3 s. Low in breakdowns, high when the full low end is in.', src: { stream: 'energy.low' }, env: { attack: 0.3, release: 1.0 } },
+  harmony: { label: 'harmonic complexity', help: 'How many different notes sound at once: spread of the chord across the 12 notes, plus the number of transcribed notes sounding together, averaged over about 3 s.', src: { stream: 'energy.harmony' }, env: { attack: 0.3, release: 1.0 } },
+  intensityOld: { label: 'intensity (old)', help: 'The previous intensity measure (spectral change, onsets per second and band levels, about 0.75 s). Jumpier; kept for comparison.', src: { stream: 'energy.intensity_v1' }, env: { attack: 0.3, release: 1.0 } },
   flux: { label: 'spectral flux', help: 'How fast the sound’s spectrum is changing. Spikes whenever something new starts: hits, notes, chord changes.', src: { stream: 'energy.flux' }, env: { attack: 0.02, release: 0.2 } },
   sub: { label: 'sub energy', help: 'Energy below 60 Hz: sub-bass and the body of the kick drum.', src: { stream: 'energy.sub' }, env: { attack: 0.03, release: 0.25 } },
   bass: { label: 'bass energy', help: 'Energy from 60 to 250 Hz: bass lines and kick drums.', src: { stream: 'energy.bass' }, env: { attack: 0.03, release: 0.25 } },
@@ -114,7 +120,7 @@ export const MAPPINGS = [
   { src: 'kick', target: 'brightness', amount: 1, curve: 'quad', out: [1, 3.2], impulse: { attack: 0.008, release: 0.2 } },
   { src: 'beat', target: 'paletteKick', amount: 1, out: [0, 0.06], impulse: { attack: 0.01, release: 0.25 } },
   { src: 'snare', target: 'paletteKick', amount: 1 },
-  { src: 'intensity', target: 'spin', amount: 1, curve: 'exp', out: [0.12, 10.9] },
+  { src: 'intensity', target: 'spin', amount: 1, curve: 'exp', out: [0.12, 10.1] },
   { src: 'hat', target: 'juliaJitter', amount: 1 },
   { src: 'chromaPeak', target: 'hue', amount: 1 },
   { src: 'bassPitch', target: 'xformRotate', amount: 1 },

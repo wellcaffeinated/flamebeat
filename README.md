@@ -72,8 +72,12 @@ are computed with a 220-sample hop and resampled onto an exact 100 fps grid.
 - **Volume**: momentary loudness (BS.1770 K-weighting from pyloudnorm, 400 ms
   window) mapped to 0..1, plus raw LUFS and 50 ms RMS dB.
 - **Energy**: sub/bass/mid/high band energies (top 30 dB, per track),
-  spectral flux, and `intensity`, a smoothed mix of flux, onset density and
-  band energy.
+  spectral flux, and `intensity` (`analysis/features/intensity.py`): the mean of
+  brightness (spectral centroid), rhythmic density (strength-weighted drum hits/s),
+  bass weight (sub+bass power) and harmonic complexity (chroma spread + note
+  polyphony), each averaged over ~3 s and scaled per track. The four ingredients
+  are stored as `energy.brightness/rhythm/low/harmony`; the old flux/onset/band
+  mix as `energy.intensity_v1`.
 - **Drums**: HPSS percussive part → per-band log-flux envelopes. Candidate
   onsets use an adaptive median+MAD threshold. Each candidate is classified:
   kick (30–120 Hz), snare (broadband: 1–4 kHz *and* 7–11 kHz), and hat
