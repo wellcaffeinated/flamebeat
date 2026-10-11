@@ -100,8 +100,8 @@ export class RoutesPanel {
   look = null;
 
   /**
-   * Mapping presets. main.js sets `hooks = { current(): { flame, fade }, apply(mapping) }`:
-   * current() supplies the non-route parts to save, apply() switches flame/fade
+   * Mapping presets. main.js sets `hooks = { current(): { flame, fade, zoom, palette }, apply(mapping) }`:
+   * current() supplies the non-route parts to save, apply() switches flame/fade/zoom/palette
    * and then calls setRows().
    */
   hooks = null;
@@ -150,7 +150,7 @@ export class RoutesPanel {
     });
     return el('div', { className: 'mapping-bar' },
       el('span', { className: 'hint', textContent: 'mapping' }), load, name,
-      button('save', 'save routes, fade time and fractal under this name (in this browser)', () => {
+      button('save', 'save routes, fade, zoom, palette and fractal under this name (in this browser)', () => {
         const n = name.value.trim();
         if (!n) { say('give the mapping a name first'); name.focus(); return; }
         if (n !== this.mappingName && library.names().includes(n) && !confirm(`Replace the saved mapping “${n}”?`)) return;

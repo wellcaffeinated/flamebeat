@@ -493,3 +493,10 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   `just verify`). Not done: per-parameter floors/clamps (option b, not wanted
   for now); colour picking itself only checked via the input's events (the
   native picker can't be driven headless).
+- 2026-10-11: **Zoom slider** (bottom bar, next to fade): one master
+  multiplier 0.25..4x (slider u -> 4^u, double-click = 1x) on the camera zoom
+  of whatever is drawn, applied after applyMods/follow so zoom pulses and
+  auto-framing still work underneath. `?zoom=`, `localStorage flamebeat.zoom`,
+  optional `zoom` in mappings (absent = 1), used by video renders. Grabs at
+  0.5/1/2x scale about the camera centre as expected; `tools/mappings.mjs`
+  checks save/load/`?mapping=` of it; video check still passes.

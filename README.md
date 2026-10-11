@@ -44,7 +44,7 @@ HTTP Range requests, and without them the browser can't seek in the audio.
 
 URL parameters: `track=<name>` (loads `../assets/audio/<name>.mp3` and
 `timelines/<name>.json`), `audio=<url>`, `timeline=<url>`, `preset=0..3`,
-`chains=65536`, `iters=178` (~700 M iter/s at 60 fps), `fade=0.15` (seconds), `decay=` (fixed per-frame, legacy), `res=1` (resolution scale),
+`chains=65536`, `iters=178` (~700 M iter/s at 60 fps), `fade=0.15` (seconds), `zoom=1` (0.25–4, also the **zoom** slider), `decay=` (fixed per-frame, legacy), `res=1` (resolution scale),
 `lookahead=0.03`, `t=<s>` (start position), `follow=1` (turn on camera follow).
 
 ### Adding a track
@@ -64,18 +64,22 @@ URL parameters: `track=<name>` (loads `../assets/audio/<name>.mp3` and
 
 ### Saving mappings
 
-A *mapping* is the routes plus the fade time, which fractal preset to use and
-the custom palette, if there is one.
+A *mapping* is the routes plus the fade time, the zoom, which fractal preset to
+use and the custom palette, if there is one.
 In the route editor (M), the **mapping** row saves it under a name in this
 browser, loads, deletes, **exports** a `.flamebeat.json` file and **imports**
 one. Put an exported file in `web/mappings/` and open
 `?mapping=mappings/<file>.json` to start with it (this doesn't overwrite the
 routes the editor remembers; `?preset=` still overrides its fractal).
 `web/mappings/teal-defaults.json` is the default routes on the teal fractal.
-Format: `{ "format": "flamebeat-mapping", "version": 1, "name", "flame", "fade", "palette", "routes": [...] }`;
+Format: `{ "format": "flamebeat-mapping", "version": 1, "name", "flame", "fade", "zoom", "palette", "routes": [...] }`;
 routes with unknown sources/parameters are skipped with a warning. `palette` is
 optional, `[[position 0–1, "#rrggbb"], …]`; a mapping without one uses the
-fractal's own palette.
+fractal's own palette, and one without `zoom` uses 1 (the fractal's own framing).
+
+The **zoom** slider in the bottom bar (double-click = 1×) scales every
+fractal's framing from 0.25× to 4×, on top of the zoom-pulse route and camera
+follow. It is remembered in this browser and saved with a mapping.
 
 ### Palette
 

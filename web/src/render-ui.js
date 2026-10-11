@@ -1,6 +1,6 @@
 // Render panel (render video button): format, frame rate, quality, time range,
 // then an offline render to MP4 with a progress bar. main.js supplies `host`:
-//   host.info()                    -> { duration, track, mapping, flame, fade }
+//   host.info()                    -> { duration, track, mapping, flame, fade, zoom }
 //   host.render(settings, extra)   -> Promise<{ codecs, frames, blob }>; see video.js
 
 import { FORMATS } from './video.js';
@@ -101,11 +101,11 @@ export class RenderPanel {
       el('div', { className: 'render-head' }, el('b', { textContent: 'render video' }),
         el('button', { type: 'button', className: 'close', textContent: '×', title: 'close', onclick: () => { if (!this.busy) this.root.hidden = true; } })),
       el('div', { className: 'render-what' },
-        `${info.track} · fractal “${info.flame}” · ${info.mapping ? `mapping “${info.mapping}”` : 'current routes'} · fade ${info.fade} s`),
+        `${info.track} · fractal “${info.flame}” · ${info.mapping ? `mapping “${info.mapping}”` : 'current routes'} · fade ${info.fade} s${info.zoom !== 1 ? ` · zoom ${info.zoom}×` : ''}`),
       row('format', format), row('frame rate', fps), row('quality', quality), row('bitrate', bitrate),
       row('from (s)', start, el('span', { className: 'hint', textContent: 'to' }), end,
         el('span', { className: 'hint', textContent: `of ${fmtTime(info.duration)}` })),
       el('div', { className: 'render-go' }, go, cancel), bar, status,
-      el('p', { className: 'hint', textContent: 'Renders frame by frame (not in real time) with the routes, fade and fractal shown in the editor, so slow GPUs just take longer. Keep this tab in front while it runs.' }));
+      el('p', { className: 'hint', textContent: 'Renders frame by frame (not in real time) with the routes, fade, zoom, palette and fractal shown in the editor, so slow GPUs just take longer. Keep this tab in front while it runs.' }));
   }
 }

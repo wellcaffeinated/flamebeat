@@ -5,9 +5,10 @@
 //   audio=<url> timeline=<url>   explicit sources
 //   preset=0 chains=65536 iters=178 res=1 lookahead=0.03   (65536 x 178 x 60 fps ~ 700 M iter/s)
 //   fade=0.15               trail fade time constant in seconds (0 = clear every frame); also the fade slider
+//   zoom=1                  zoom multiplier on the fractal's framing (0.25..4); also the zoom slider
 //   decay=0.9               (legacy) fixed per-frame decay instead of a fade time
 //   t=<seconds>              start position
-//   mapping=<url>            load a saved mapping file (routes, fade, fractal, palette), e.g. mappings/teal.json;
+//   mapping=<url>            load a saved mapping file (routes, fade, zoom, fractal, palette), e.g. mappings/teal.json;
 //                            it is not written over the editor's own saved routes
 //   follow=1                 enable camera follow (off by default: its random re-framing wobbles the view)
 //   clock=manual             (testing) time is set via window.__setTime(t), not audio
@@ -43,6 +44,7 @@ const state = {
   itersPerThread: num('iters', 178),
   decay: q.has('decay') ? num('decay', 0.9) : null,   // fixed per-frame decay overrides the fade time
   fade: num('fade', loadFade()),
+  zoom: num('zoom', loadZoom()),
   palette: loadPalette(),   // custom palette stops, or null = each fractal's own
   lastFrameMs: null,
   frames: 0, itersWindow: 0, tWindow: performance.now(), fps: 0, ips: 0,
@@ -82,6 +84,27 @@ fadeInput.addEventListener('input', () => {
 });
 fadeInput.addEventListener('dblclick', () => { state.fade = 0.15; showFade(); fadeInput.dispatchEvent(new Event('input')); });
 showFade();
+
+// zoom: a multiplier on every fractal's own (auto-)framing; slider position u -> 4^u (0.25..4x)
+function loadZoom() {
+  try { const v = Number(localStorage.getItem('flamebeat.zoom')); if (v > 0) return v; } catch { /* storage blocked */ }
+  return 1;
+}
+const zoomInput = $('zoom'), zoomOut = $('zoom-val');
+function showZoom() {
+  zoomInput.value = Math.log(state.zoom) / Math.log(4);
+  zoomOut.textContent = `${state.zoom.toFixed(2)}×`;
+}
+function setZoom(z, persist = true) {
+  state.zoom = Math.min(4, Math.max(0.25, z));
+  showZoom();
+  if (persist) try { localStorage.setItem('flamebeat.zoom', String(state.zoom)); } catch { /* ignore */ }
+}
+zoomInput.addEventListener('input', () => setZoom(Math.round(4 ** Number(zoomInput.value) * 100) / 100));
+zoomInput.addEventListener('dblclick', () => setZoom(1));
+showZoom();
+/** The flame with the zoom slider applied to its camera (on top of follow and zoom pulses). */
+const zoomed = (f, z = state.zoom) => (z === 1 ? f : { ...f, camera: { ...f.camera, zoom: f.camera.zoom * z } });
 
 function fail(text) {
   msg.hidden = false;
@@ -134,6 +157,7 @@ function applyMapping(m, { persist = true, keepFlame = false } = {}) {
   }
   // a mapping without a palette uses the fractal's own
   setPalette(m.palette ? paletteFromFile(m.palette) : null, { persist });
+  setZoom(m.zoom ?? 1, persist);   // a mapping without a zoom uses the fractal's own framing
   if (m.fade != null) {
     state.fade = m.fade;
     showFade();
@@ -142,7 +166,7 @@ function applyMapping(m, { persist = true, keepFlame = false } = {}) {
   routesPanel.setRows(m.routes, { persist, name: m.name });
 }
 routesPanel.hooks = {
-  current: () => ({ flame: base.name, fade: state.fade, palette: state.palette }),
+  current: () => ({ flame: base.name, fade: state.fade, zoom: state.zoom, palette: state.palette }),
   apply: (m) => applyMapping(m),
 };
 if (q.has('mapping')) {
@@ -253,7 +277,7 @@ function draw() {
     ({ flame, itersScale, paletteOffset, hue, fadeScale } = applyMods(base, lastMods, mapOpts));
     followCamera({ ...flame, camera: base.camera });
   }
-  const its = renderer.render(flame, {
+  const its = renderer.render(zoomed(flame), {
     itersPerThread: state.itersPerThread * itersScale,
     decay: frameDecay(fadeScale),
     paletteOffset,
@@ -281,7 +305,7 @@ function frame(nowMs) {
   window.__flamebeat = {
     frames: renderer.frameNo, fps: state.fps, ips: state.ips, t, audioT: audio.currentTime,
     adapter: renderer.adapter.info?.vendor, timeline: !!state.timeline,
-    preset: base.name, mods: lastMods, palette: base.palette,
+    preset: base.name, mods: lastMods, palette: base.palette, zoom: state.zoom,
   };
   requestAnimationFrame(frame);
 }
@@ -293,19 +317,20 @@ requestAnimationFrame(frame);
 const renderPanel = new RenderPanel($('render'), {
   info: () => ({
     duration: state.timeline?.duration || audio.duration || 0,
-    track: state.trackName ?? 'track', mapping: routesPanel.mappingName, flame: base.name, fade: state.fade,
+    track: state.trackName ?? 'track', mapping: routesPanel.mappingName, flame: base.name, fade: state.fade, zoom: state.zoom,
   }),
   async render(settings, extra) {
     if (!state.timeline) throw new Error('no timeline loaded for this track');
     const F = FORMATS[settings.format];
     const flame0 = loadPreset(state.presetIndex, F.width / F.height);
     const mapper = new Mapper(state.timeline, structuredClone(routesPanel.rows), mapOpts);
+    const zoom = state.zoom;
     state.rendering = true;
     audio.pause();
     canvas.classList.add('rendering');
     try {
       return await renderVideo({
-        renderer, frameAt: (t) => applyMods(flame0, mapper.update(t), mapOpts),
+        renderer, frameAt: (t) => { const r = applyMods(flame0, mapper.update(t), mapOpts); r.flame = zoomed(r.flame, zoom); return r; },
         iters: state.itersPerThread, fade: state.fade,
         width: F.width, height: F.height, fps: settings.fps, t0: settings.t0, t1: settings.t1,
         quality: settings.quality, bitrate: settings.bitrate * 1e6,

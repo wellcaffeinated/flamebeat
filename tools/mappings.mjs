@@ -26,6 +26,8 @@ await page.keyboard.press('m');
 
 // save: routes + fade + fractal under a name
 await amount0.fill('0.5');
+await page.locator('#zoom').fill('0.5');   // slider position 0.5 -> 4^0.5 = 2x
+await page.waitForFunction(() => window.__flamebeat.zoom === 2);
 await bar.locator('input[type=text]').fill('test A');
 await bar.locator('button', { hasText: 'save' }).click();
 const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('flamebeat.mappings.v1'))['test A']);
@@ -33,13 +35,17 @@ assert.equal(saved.format, 'flamebeat-mapping');
 assert.equal(saved.routes[0].amount, 0.5);
 assert.equal(saved.flame, (await page.evaluate(() => window.__flamebeat.preset)));
 assert.equal(saved.fade, 0.15);
+assert.equal(saved.zoom, 2);
 console.log(`saved "test A": ${saved.routes.length} routes, flame "${saved.flame}", fade ${saved.fade}`);
 
 // change, then load it back
 await amount0.fill('2');
+await page.locator('#zoom').dblclick();
 assert.equal((await routes())[0].amount, 2);
+await page.waitForFunction(() => window.__flamebeat.zoom === 1);
 await bar.locator('select').selectOption('test A');
-assert.equal((await routes())[0].amount, 0.5); console.log('load restores the routes');
+assert.equal((await routes())[0].amount, 0.5);
+await page.waitForFunction(() => window.__flamebeat.zoom === 2); console.log('load restores the routes and zoom');
 
 // export: a downloadable file in the same format
 const [dl] = await Promise.all([page.waitForEvent('download'), bar.locator('button', { hasText: 'export' }).click()]);
@@ -71,6 +77,7 @@ await page.waitForFunction(() => window.__flamebeat.preset === 'julia bloom teal
 const file0 = JSON.parse(fs.readFileSync(new URL('../web/mappings/teal-defaults.json', import.meta.url)));
 assert.deepEqual(await routes(), file0.routes);
 assert.equal(await page.evaluate(() => localStorage.getItem('flamebeat.routes.v2')), before);
+await page.waitForFunction(() => window.__flamebeat.zoom === 1);   // no zoom in the file: the fractal's own framing
 console.log(`?mapping=: fractal "julia bloom teal", ${file0.routes.length} routes, editor routes untouched`);
 
 console.log(errors.length ? errors : 'no page errors');

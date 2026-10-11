@@ -3,6 +3,7 @@
 //   { "format": "flamebeat-mapping", "version": 1, "name": "teal 9/8",
 //     "flame": "julia bloom teal",   // preset name (optional: keep the current one)
 //     "fade": 0.15,                  // trail fade time in seconds (optional)
+//     "zoom": 1.5,                   // zoom multiplier on the fractal's camera (optional, default 1)
 //     "palette": [[0, "#03181a"], [0.4, "#44a1a0"], ...],   // custom palette (optional:
 //                                    // absent = the fractal's own); stops wrap from last to first
 //     "routes": [ { "src": "kick", "target": "brightness", "amount": 1, ... } ] }
@@ -30,10 +31,11 @@ export function paletteFromFile(v) {
 }
 
 /** `palette` is flame-style stops ([[pos, [r,g,b]]]) or null for the fractal's own. */
-export function makeMapping({ name, flame, fade, palette, routes }) {
+export function makeMapping({ name, flame, fade, zoom, palette, routes }) {
   const m = { format: FORMAT, version: VERSION, name: String(name || 'untitled') };
   if (flame) m.flame = flame;
   if (Number.isFinite(fade)) m.fade = fade;
+  if (Number.isFinite(zoom) && zoom > 0 && zoom !== 1) m.zoom = zoom;
   if (palette) m.palette = paletteToFile(palette);
   m.routes = structuredClone(routes ?? []);
   return m;
@@ -55,10 +57,11 @@ export function parseMapping(json) {
     return ok;
   });
   const fade = Number(json.fade);
+  const zoom = Number(json.zoom);
   const palette = json.palette == null ? null : paletteFromFile(json.palette);
   if (json.palette != null && !palette) warnings.push('palette ignored: expected [[position 0–1, "#rrggbb"], …] with at least 2 stops');
   return {
-    mapping: makeMapping({ name: json.name, flame: json.flame, fade: Number.isFinite(fade) && fade >= 0 ? fade : undefined, palette, routes }),
+    mapping: makeMapping({ name: json.name, flame: json.flame, fade: Number.isFinite(fade) && fade >= 0 ? fade : undefined, zoom: zoom > 0 ? zoom : undefined, palette, routes }),
     warnings,
   };
 }
