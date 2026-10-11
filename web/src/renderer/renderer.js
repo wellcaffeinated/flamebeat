@@ -7,6 +7,8 @@ import {
 } from './shaders.js';
 import { buildPalette } from './palette.js';
 
+const MAX_ITERS_PER_DISPATCH = 256;
+
 export class WebGPUUnavailable extends Error {}
 
 export async function createRenderer(canvas, opts = {}) {
@@ -91,11 +93,15 @@ export class FlameRenderer {
 
   setChains(n) { if (n !== this.chains) this.allocChains(n); }
 
-  /** Match the histogram to the canvas' CSS size * devicePixelRatio * resScale. */
+  /** Render at exactly w x h (video), ignoring the canvas' on-screen size; null = follow the canvas again. */
+  setFixedSize(w, h) { this.fixedSize = w && h ? [w, h] : null; this.resize(); }
+
+  /** Match the histogram to the canvas' CSS size * devicePixelRatio * resScale (or the fixed size). */
   resize() {
     const dpr = window.devicePixelRatio || 1;
-    const w = Math.max(16, Math.round(this.canvas.clientWidth * dpr * this.resScale));
-    const h = Math.max(16, Math.round(this.canvas.clientHeight * dpr * this.resScale));
+    const [w, h] = this.fixedSize ?? [
+      Math.max(16, Math.round(this.canvas.clientWidth * dpr * this.resScale)),
+      Math.max(16, Math.round(this.canvas.clientHeight * dpr * this.resScale))];
     if (w === this.width && h === this.height) return;
     this.width = w; this.height = h;
     this.canvas.width = w; this.canvas.height = h;
@@ -171,7 +177,7 @@ export class FlameRenderer {
     // k2: scale density so that the "average" lit pixel lands around 1.
     // Steady-state hits held in the histogram ~ hits per frame / (1 - decay).
     const decay = opts.decay;
-    const held = this.chains * opts.itersPerThread / Math.max(1 - Math.min(decay, 0.999), 1e-3);
+    const held = this.chains * (opts.held ?? opts.itersPerThread) / Math.max(1 - Math.min(decay, 0.999), 1e-3);
     const k2 = (flame.exposure ?? 1) * (this.width * this.height) / Math.max(held, 1) * 4;
     f.set([flame.brightness, flame.gamma, flame.vibrancy, k2], 12);
     const bg = flame.background ?? [0, 0, 0];
@@ -214,6 +220,42 @@ export class FlameRenderer {
     return { width: w, height: h, data: out };
   }
 
+  /**
+   * Tone-map the current histogram and read it back for video encoding.
+   * Resources are kept between calls; returns { width, height, data, stride }
+   * where rows are `stride` bytes apart (padded to 256). `data` is only valid
+   * until `release()` is called.
+   */
+  async readFrame() {
+    const d = this.device;
+    const w = this.width, h = this.height;
+    const bpr = Math.ceil(w * 4 / 256) * 256;
+    if (!this.snapPipe) {
+      const mod = d.createShaderModule({ code: toneWGSL });
+      this.snapPipe = d.createRenderPipeline({ layout: 'auto', vertex: { module: mod, entryPoint: 'vs' },
+        fragment: { module: mod, entryPoint: 'fs', targets: [{ format: 'rgba8unorm' }] } });
+    }
+    const R = this.readRes;
+    if (!R || R.w !== w || R.h !== h || R.hist !== this.histBuf) {
+      R?.tex.destroy(); R?.buf.destroy();
+      this.readRes = {
+        w, h, hist: this.histBuf,
+        tex: d.createTexture({ size: [w, h], format: 'rgba8unorm', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC }),
+        buf: d.createBuffer({ size: bpr * h, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST }),
+        bg: d.createBindGroup({ layout: this.snapPipe.getBindGroupLayout(0),
+          entries: [{ binding: 0, resource: { buffer: this.paramBuf } }, { binding: 1, resource: { buffer: this.histBuf } }] }),
+      };
+    }
+    const { tex, buf, bg } = this.readRes;
+    const enc = d.createCommandEncoder();
+    const pass = enc.beginRenderPass({ colorAttachments: [{ view: tex.createView(), loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 1] }] });
+    pass.setPipeline(this.snapPipe); pass.setBindGroup(0, bg); pass.draw(3); pass.end();
+    enc.copyTextureToBuffer({ texture: tex }, { buffer: buf, bytesPerRow: bpr }, [w, h]);
+    d.queue.submit([enc.finish()]);
+    await buf.mapAsync(GPUMapMode.READ);
+    return { width: w, height: h, stride: bpr, data: new Uint8Array(buf.getMappedRange()), release: () => buf.unmap() };
+  }
+
   /** Debug: read the histogram back and summarise it (slow; for tests only). */
   async histStats() {
     const size = this.width * this.height * 16;
@@ -241,8 +283,13 @@ export class FlameRenderer {
     this.resize();
     if (!this.bindGroups) this.makeBindGroups();
     this.setPalette(flame.palette);
+    const total = Math.max(1, Math.round(opts.itersPerThread ?? this.itersPerThread));
+    // heavy frames (video quality) run as several dispatches of <= MAX_ITERS_PER_DISPATCH,
+    // so no single GPU job runs long enough to trip a driver watchdog
+    const passes = Math.ceil(total / MAX_ITERS_PER_DISPATCH);
     const o = {
-      itersPerThread: Math.max(1, Math.round(opts.itersPerThread ?? this.itersPerThread)),
+      itersPerThread: Math.ceil(total / passes),
+      held: total,
       decay: opts.decay ?? 0.9,
       paletteOffset: opts.paletteOffset ?? 0,
       hue: opts.hue ?? 0,
@@ -257,10 +304,14 @@ export class FlameRenderer {
       pass.setPipeline(this.decayPipe);
       pass.setBindGroup(0, this.bindGroups.decay);
       pass.dispatchWorkgroups(Math.min(groups, 65535), Math.ceil(groups / 65535));
-      pass.setPipeline(this.computePipe);
-      pass.setBindGroup(0, this.bindGroups.compute);
-      pass.dispatchWorkgroups(Math.ceil(this.chains / 64));
       pass.end();
+      for (let k = 0; k < passes; k++) {
+        const cp = enc.beginComputePass();
+        cp.setPipeline(this.computePipe);
+        cp.setBindGroup(0, this.bindGroups.compute);
+        cp.dispatchWorkgroups(Math.ceil(this.chains / 64));
+        cp.end();
+      }
     }
     {
       const pass = enc.beginRenderPass({
@@ -276,6 +327,6 @@ export class FlameRenderer {
     }
     this.device.queue.submit([enc.finish()]);
     this.frameNo++;
-    return this.chains * o.itersPerThread;   // iterations this frame
+    return this.chains * o.itersPerThread * passes;   // iterations this frame
   }
 }

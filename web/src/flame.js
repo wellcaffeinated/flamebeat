@@ -88,7 +88,8 @@ export function sampleAttractor(flame, n = 20000) {
 
 /**
  * Centre the camera on the attractor and zoom so its [lo, hi] percentile box
- * fills `fill` of the viewport height (aspect = width / height).
+ * fills `fill` of the viewport (aspect = width / height). Zoom is measured
+ * across the short side (2 / zoom units), as in the renderer.
  */
 export function autoFrame(flame, aspect = 16 / 9, fill = 0.75, lo = 0.02, hi = 0.98, n = 20000) {
   const pts = sampleAttractor(flame, n);
@@ -96,6 +97,9 @@ export function autoFrame(flame, aspect = 16 / 9, fill = 0.75, lo = 0.02, hi = 0
   const xs = pts.map((p) => p[0]).sort((a, b) => a - b);
   const ys = pts.map((p) => p[1]).sort((a, b) => a - b);
   const x0 = q(xs, lo), x1 = q(xs, hi), y0 = q(ys, lo), y1 = q(ys, hi);
-  const halfH = Math.max((y1 - y0) / 2, (x1 - x0) / 2 / aspect, 1e-3);
-  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, zoom: fill / halfH, angle: flame.camera?.angle ?? 0 };
+  // half the short side needed to fit the box (landscape: height; portrait: width)
+  const halfShort = aspect >= 1
+    ? Math.max((y1 - y0) / 2, (x1 - x0) / 2 / aspect, 1e-3)
+    : Math.max((x1 - x0) / 2, (y1 - y0) / 2 * aspect, 1e-3);
+  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, zoom: fill / halfShort, angle: flame.camera?.angle ?? 0 };
 }

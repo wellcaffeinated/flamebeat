@@ -1,0 +1,2 @@
+mp4-muxer 5.2.2 (MIT, Vanilagy), unmodified build/mp4-muxer.mjs from
+https://registry.npmjs.org/mp4-muxer/-/mp4-muxer-5.2.2.tgz (sha1 40b93b1b727f5f4a9fbda131fe7c5b5013168bf1)

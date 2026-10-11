@@ -114,7 +114,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let h = P.dims.y;
   let ca = cos(P.cam.w);
   let sa = sin(P.cam.w);
-  let scale = P.cam.z * f32(h) * 0.5;
+  // zoom: the short side of the view spans 2 / zoom units (landscape: the height)
+  let scale = P.cam.z * f32(min(w, h)) * 0.5;
   // hue rotation of palette colours (CSS hue-rotate matrix, keeps luminance)
   let ha = cos(P.misc.z * 2.0 * PI);
   let hb = sin(P.misc.z * 2.0 * PI);

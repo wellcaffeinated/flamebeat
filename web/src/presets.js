@@ -7,7 +7,7 @@ const P = (cols) => cols.map((c, i) => [i / cols.length, hex(c)]);
  * Convert a flame-fractal parameter file (github: flame-fractal, examples/*.json)
  * to a flamebeat flame. Differences handled here:
  * - camera.zoom there is fractal units across the short side; here the
- *   viewport height spans 2 / zoom units (the short side on landscape screens)
+ *   short side spans 2 / zoom units
  * - palette stops are spread evenly over 0..1 inclusive and don't wrap
  * - background is 0..255, julia uses the paper's atan2(x, y)
  * Render-only fields (width, height, supersample, iterations) are dropped.

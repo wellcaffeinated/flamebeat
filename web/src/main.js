@@ -20,6 +20,8 @@ import { Mapper, applyMods, MAP_DEFAULTS } from './mapping.js';
 import { DebugOverlay } from './overlay.js';
 import { RoutesPanel, loadRoutes } from './routes-ui.js';
 import { fetchMapping } from './mappings.js';
+import { RenderPanel } from './render-ui.js';
+import { renderVideo, FORMATS } from './video.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? Number(q.get(k)) : d);
@@ -88,9 +90,9 @@ try {
   throw e;
 }
 
-function loadPreset(i) {
+function loadPreset(i, aspect = canvas.clientWidth / canvas.clientHeight) {
   const f = clone(presets[i]);
-  if (f.camera === 'auto' || f.camera == null) f.camera = autoFrame(f, canvas.clientWidth / canvas.clientHeight);
+  if (f.camera === 'auto' || f.camera == null) f.camera = autoFrame(f, aspect);
   return f;
 }
 let base = loadPreset(state.presetIndex);
@@ -164,6 +166,7 @@ async function loadTimelineFrom(urlOrFile) {
       ? await fetch(urlOrFile).then((r) => { if (!r.ok) throw new Error(`${r.status} ${urlOrFile}`); return r.json(); })
       : JSON.parse(await urlOrFile.text());
     state.timeline = new Timeline(json);
+    state.trackName = stem(json.track?.file ?? 'track');
     state.mapper = new Mapper(state.timeline, routesPanel.rows, mapOpts);
     const m = state.timeline.meter;
     setStatus(`${json.track?.file ?? 'timeline'} · ${state.timeline.tempo.toFixed(1)} BPM · `
@@ -234,6 +237,7 @@ function draw() {
 }
 
 function frame(nowMs) {
+  if (state.rendering) { requestAnimationFrame(frame); return; }   // the video render drives the GPU
   const { its, t } = draw();
   state.frames++;
   state.itersWindow += its;
@@ -255,6 +259,40 @@ function frame(nowMs) {
 }
 requestAnimationFrame(frame);
 
+// ---------------------------------------------------------------- video render
+// Offline: a fresh Mapper and the current routes / fade / fractal, stepped at
+// exactly 1/fps per frame. Auto-framed presets are re-framed for the video's shape.
+const renderPanel = new RenderPanel($('render'), {
+  info: () => ({
+    duration: state.timeline?.duration || audio.duration || 0,
+    track: state.trackName ?? 'track', mapping: routesPanel.mappingName, flame: base.name, fade: state.fade,
+  }),
+  async render(settings, extra) {
+    if (!state.timeline) throw new Error('no timeline loaded for this track');
+    const F = FORMATS[settings.format];
+    const flame0 = loadPreset(state.presetIndex, F.width / F.height);
+    const mapper = new Mapper(state.timeline, structuredClone(routesPanel.rows), mapOpts);
+    state.rendering = true;
+    audio.pause();
+    canvas.classList.add('rendering');
+    try {
+      return await renderVideo({
+        renderer, frameAt: (t) => applyMods(flame0, mapper.update(t), mapOpts),
+        iters: state.itersPerThread, fade: state.fade,
+        width: F.width, height: F.height, fps: settings.fps, t0: settings.t0, t1: settings.t1,
+        quality: settings.quality, bitrate: settings.bitrate * 1e6,
+        preroll: Math.min(5, Math.max(1, state.fade * 6)),
+        audioUrl: audio.currentSrc || audio.src || null,
+        ...extra,
+      });
+    } finally {
+      state.rendering = false;
+      canvas.classList.remove('rendering');
+    }
+  },
+});
+$('render-btn').addEventListener('click', () => renderPanel.toggle());
+
 // ---------------------------------------------------------------- keyboard
 window.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLButtonElement) return;
@@ -273,6 +311,7 @@ window.addEventListener('keydown', (e) => {
       break;
     case 'd': case 'D': overlay.toggle(); break;
     case 'm': case 'M': routesPanel.toggle(); break;
+    case 'v': case 'V': renderPanel.toggle(); break;
     case 'h': case 'H': bar.classList.toggle('hidden'); hud.hidden = !hud.hidden; break;
     case '[': state.itersPerThread = Math.max(1, Math.round(state.itersPerThread / 1.5)); break;
     case ']': state.itersPerThread = Math.min(512, Math.round(state.itersPerThread * 1.5) || 1); break;
@@ -293,6 +332,7 @@ window.__grab = async () => {
 };
 window.__setTime = (t) => { state.manualT = t; };
 window.__routes = routesPanel;
+window.__render = renderPanel;
 window.__mapping = () => routesPanel.currentMapping();
 window.__overlay = (on = true) => { if (overlay.visible !== on) overlay.toggle(); };
 window.__renderer = renderer;

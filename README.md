@@ -74,6 +74,22 @@ routes the editor remembers; `?preset=` still overrides its fractal).
 Format: `{ "format": "flamebeat-mapping", "version": 1, "name", "flame", "fade", "routes": [...] }`;
 routes with unknown sources/parameters are skipped with a warning.
 
+### Rendering a video
+
+**render video** (or V) renders the current setup (routes, fade, fractal: the
+mapping shown in the panel) to an MP4, offline: the song is stepped exactly
+1/fps per frame, so a slow GPU only takes longer, it never drops frames.
+Formats: landscape 16:9 1920×1080 (default), portrait 9:16 1080×1920
+(Reels/Stories/TikTok), portrait 4:5 1080×1350 (Instagram feed), square
+1080×1080; 60 or 30 fps; quality ×1/×2/×4 iterations per frame; 12/20/30 Mbps;
+a time range. Chrome asks where to save and streams the file to disk; other
+browsers get a download link. Codecs: H.264 + AAC where the browser has them,
+else VP9 / Opus (Chromium on Linux has no AAC encoder; Instagram may reject
+Opus audio, Chrome on macOS/Windows has AAC). Zoom is measured across the
+short side, so portrait formats fit the fractal to the width. A short
+pre-roll before the start builds up the trails. `tools/video.mjs` (in
+`just verify`) renders a 1.5 s portrait clip headless and checks it with ffprobe.
+
 ## How it works
 
 ### Analysis (`analysis/`, Python 3.10)

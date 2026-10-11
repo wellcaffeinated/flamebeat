@@ -456,4 +456,21 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   `web/mappings/teal-defaults.json` committed. `tools/mappings.mjs` (in
   `just verify`) checks save/load/export/import/delete and `?mapping=`.
   Designed so a future video render takes track + mapping file.
+- 2026-10-11: **Offline video render** (`web/src/video.js`, `render-ui.js`,
+  vendored `web/vendor/mp4-muxer` 5.2.2, MIT, sha1-checked). Frame-exact: a
+  fresh Mapper stepped at 1/fps, decay from the fade time per 1/fps, pre-roll
+  max(1 s, 6x fade) up to 5 s before t0 not encoded; frames tone-mapped to an
+  rgba8 texture and read back (`readFrame`, buffers reused) -> VideoFrame
+  (padded stride) -> VideoEncoder (H.264 High 4.2, fallback VP9) and
+  AudioEncoder (AAC, fallback Opus; song decoded at 48 kHz, fed in step with
+  the video) -> MP4, streamed to a showSaveFilePicker file with a reserved
+  fast-start index, else an in-memory Blob. Formats 16:9 1920x1080 (default),
+  9:16, 4:5, 1:1; 60/30 fps; quality x1/x2/x4; 12/20/30 Mbps. Renderer: fixed
+  render size, heavy frames split into dispatches of <= 256 iterations per
+  chain (driver watchdogs), zoom now across the **short side** (landscape
+  unchanged; portrait fits the width), autoFrame likewise.
+  Headless (SwiftShader, 4096 chains x 8): 1.5 s 1080x1920@30 in 22 s ->
+  ffprobe h264 1080x1920 30/1, 45 frames, opus 48 kHz stereo, 1.52 s; frame
+  not black; cancel discards and live view resumes. Not verified: speed and
+  look on a real GPU at full quality; AAC (not in this Chromium).
 
