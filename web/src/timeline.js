@@ -53,6 +53,38 @@ export class Timeline {
     return a[i] + (a[i + 1] - a[i]) * f;
   }
 
+  /**
+   * Name of `name` averaged over a window of `seconds` centred on each frame
+   * (two box passes of seconds/2 ~ a triangle window, so no lag: the timeline
+   * is known in advance), rescaled to 0..1 between its 1st and 99th
+   * percentiles because averaging flattens the peaks. Computed once, cached as
+   * a derived stream; sample it with sample().
+   */
+  smoothed(name, seconds) {
+    const key = `${name}~${seconds}s`;
+    if (this.streams.has(key)) return key;
+    const src = this.streams.get(name);
+    if (!src) return name;
+    const half = Math.max(1, Math.round((seconds / 2) * this.rate / 2));   // box radius in frames
+    const box = (a) => {
+      const pre = new Float64Array(a.length + 1);
+      for (let i = 0; i < a.length; i++) pre[i + 1] = pre[i] + a[i];
+      const out = new Float32Array(a.length);
+      for (let i = 0; i < a.length; i++) {
+        const lo = Math.max(0, i - half), hi = Math.min(a.length, i + half + 1);
+        out[i] = (pre[hi] - pre[lo]) / (hi - lo);
+      }
+      return out;
+    };
+    const s = box(box(src));
+    const sorted = Float32Array.from(s).sort();
+    const p1 = sorted[Math.floor(0.01 * (sorted.length - 1))], p99 = sorted[Math.floor(0.99 * (sorted.length - 1))];
+    const span = p99 - p1 > 1e-6 ? p99 - p1 : 1;
+    for (let i = 0; i < s.length; i++) s[i] = Math.min(1, Math.max(0, (s[i] - p1) / span));
+    this.streams.set(key, s);
+    return key;
+  }
+
   /** Nearest-frame sample (for streams that must not be interpolated, e.g. f0). */
   sampleNearest(name, t) {
     const a = this.streams.get(name);

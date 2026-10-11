@@ -60,6 +60,23 @@ for (let t = 30; t < 90; t += 1 / 30) {
 }
 assert.ok(maxGain <= 0.98 + 1e-9, `gain ${maxGain}`); ok(`affines stay contractive (max gain ${maxGain.toFixed(3)})`);
 
+// smoothed sources: full 0..1 range, much steadier than raw
+{
+  const wiggle = (rows) => {
+    const m = new Mapper(tl, rows); let prev = null, tv = 0, lo = Infinity, hi = -Infinity;
+    for (let t = 0; t < tl.duration; t += 0.05) {
+      const v = m.update(t).brightness; lo = Math.min(lo, v); hi = Math.max(hi, v);
+      if (prev != null) tv += Math.abs(v - prev); prev = v;
+    }
+    return { tv, lo, hi };
+  };
+  const raw = wiggle([{ src: 'high', target: 'brightness', out: [0, 1] }]);
+  const avg = wiggle([{ src: 'high', target: 'brightness', out: [0, 1], smooth: 4 }]);
+  assert.ok(avg.lo < 0.01 && avg.hi > 0.99, `smoothed range ${avg.lo}..${avg.hi}`);
+  assert.ok(avg.tv < raw.tv / 5, `smoothed wiggle ${avg.tv} vs raw ${raw.tv}`);
+  ok(`smooth 4 s: range 0..1, ${(raw.tv / avg.tv).toFixed(0)}x steadier than raw`);
+}
+
 // summary of modulation ranges over the groove section
 const m4 = new Mapper(tl);
 const ranges = {};

@@ -1,10 +1,15 @@
 // Route editor (toggle with M): one row per signal -> parameter route, with a
-// source select, a target select, a response curve and an amount slider. Edits apply live via
+// source select, a target select, a response curve, smoothing and an amount slider. Edits apply live via
 // mapper.setRoutes() and are remembered in localStorage. Saved routes are full
 // copies (ranges, curves), so when the defaults in mapping.js change the panel
 // offers to switch to them instead of silently keeping the old ones.
 
 import { SOURCES, TARGETS, MAPPINGS, CURVES, resolve } from './mapping.js';
+
+/** Smoothing windows offered for continuous sources (seconds; '' = off). */
+// keys are '2s' etc. so the object keeps this order (integer-like keys would sort first)
+const SMOOTH = Object.fromEntries([['', 'raw'], ...[0.5, 1, 2, 4, 8, 16].map((v) => [`${v}s`, `avg ${v} s`])]
+  .map(([k, label]) => [k, { label }]));
 
 // v2: new default routes (beats -> brightness/palette, no zoom or iteration changes)
 const STORE = 'flamebeat.routes.v2';
@@ -91,6 +96,7 @@ export class RoutesPanel {
       // pairing gets that source's and target's own defaults (a chosen curve is kept)
       const fresh = (patch) => {
         const keep = typeof row.curve === 'string' ? { curve: row.curve } : {};
+        if (row.smooth) keep.smooth = row.smooth;
         this.rows[i] = { src: row.src, target: row.target, amount: row.amount ?? 1, ...keep, ...patch };
         this.changed(true);
       };
@@ -112,13 +118,21 @@ export class RoutesPanel {
       curve.className = 'curve';
       curve.title = 'response curve';
       if (def.circular) { curve.disabled = true; curve.title = 'circular source: no curve'; }
+      // smoothing: only continuous (stream) sources can be averaged
+      const smooth = select(SMOOTH, row.smooth ? `${row.smooth}s` : '', (v) => {
+        if (v) row.smooth = parseFloat(v); else delete row.smooth;
+        this.changed();
+      });
+      smooth.className = 'smooth';
+      smooth.title = 'average the source over a window centred on now';
+      if (!SOURCES[row.src].src.stream) { smooth.disabled = true; smooth.title = 'events and pitch sources are not averaged'; }
       const meter = el('span', { className: 'meter' }, el('i'));
       this.meters.push(meter.firstChild);
       r.append(el('div', { className: 'route' },
         select(SOURCES, row.src, (v) => fresh({ src: v })),
         el('span', { className: 'arrow', textContent: '→' }),
         select(TARGETS, row.target, (v) => fresh({ target: v })),
-        curve, slider, val, meter,
+        curve, smooth, slider, val, meter,
         Object.assign(el('button', { textContent: '×', title: 'remove route' }),
           { onclick: () => { this.rows.splice(i, 1); this.changed(true); } })));
     });

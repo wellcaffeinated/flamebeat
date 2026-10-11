@@ -381,3 +381,16 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   records which defaults the saved routes came from and, when MAPPINGS changes,
   shows "use new defaults / keep mine" and marks the routes button
   (`tools/routes.mjs` checks it).
+- 2026-10-11: Route **smooth** column: a continuous source can be averaged
+  over a centred 0.5-16 s window (two box passes ~ triangle, no lag since the
+  timeline is precomputed), rescaled to 0..1 between its p1/p99, cached per
+  (stream, window) in `Timeline.smoothed()`. On Thirteen TeV, high energy at
+  avg 2 s moves 10x less per second than raw, avg 8 s 40x, both still 0..1.
+  Note: a centred window starts rising up to half a window *before* a change.
+  **Meter:** Thirteen TeV is not 4/4. Drum-envelope autocorrelation repeats
+  every 3.51 s = 9 pulses of 0.390 s (153.8 BPM), stronger again at 7.0 s
+  (2 bars); beat-level autocorrelation peaks at lag 9 for kick, snare and hat,
+  nothing at 4/8. The analysis assumes 4/4 (`BEATS_PER_BAR = 4`), so its
+  downbeats are wrong here; nothing in the visualizer uses downbeats yet
+  (only the debug overlay and plot). librosa's beat grid also wobbles on this
+  track (intervals 0.30-0.40 s around the true 0.39 s pulse).

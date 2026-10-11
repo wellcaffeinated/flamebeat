@@ -6,6 +6,8 @@
 //   src      { stream: 'energy.intensity' }      continuous timeline stream
 //            { impulse: 'kick', attack, release } decaying impulse from events
 //            { derived: 'chromaPos' | 'chromaPeak' | 'bassPitch' }
+//   smooth   seconds: average a continuous source over a centred window of this
+//            length (and rescale it to 0..1) for a steadier, section-level signal
 //   gain     multiply the source              (default 1)
 //   curve    shape applied after gain+clamp: a CURVES name ('quad', 'exp', ...)
 //            or a number (power; default 1, >1 = more contrast)
@@ -139,6 +141,7 @@ export function resolve(row, i = 0) {
   return {
     id: `${S.label}→${T.label}#${i}`,
     src: S.src.impulse ? { ...S.src, ...S.impulse, ...row.impulse } : S.src,
+    smooth: S.src.stream ? (row.smooth ?? 0) : 0,
     curve: row.curve ?? env.curve,
     attack: row.attack ?? env.attack,
     release: row.release ?? env.release,
@@ -187,9 +190,9 @@ export class Mapper {
     this.mods = {};
   }
 
-  source(src, t) {
+  source(src, t, smooth = 0) {
     const tl = this.tl;
-    if (src.stream) return tl.sample(src.stream, t);
+    if (src.stream) return tl.sample(smooth > 0 ? tl.smoothed(src.stream, smooth) : src.stream, t);
     if (src.impulse) {
       return tl.impulse(src.impulse, t, { attack: src.attack, release: src.release, lookahead: this.opts.lookahead });
     }
@@ -250,7 +253,7 @@ export class Mapper {
     const mods = {};
     for (const [k, T] of Object.entries(TARGETS)) mods[k] = T.neutral;
     for (const m of this.mappings) {
-      let s = this.source(m.src, t);
+      let s = this.source(m.src, t, m.smooth);
       this.signals[m.id] = s;
       if (!m.circular) s = shape(clamp01(s * (m.gain ?? 1)), m.curve);
 
