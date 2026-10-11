@@ -3,6 +3,8 @@
 //   { "format": "flamebeat-mapping", "version": 1, "name": "teal 9/8",
 //     "flame": "julia bloom teal",   // preset name (optional: keep the current one)
 //     "fade": 0.15,                  // trail fade time in seconds (optional)
+//     "palette": [[0, "#03181a"], [0.4, "#44a1a0"], ...],   // custom palette (optional:
+//                                    // absent = the fractal's own); stops wrap from last to first
 //     "routes": [ { "src": "kick", "target": "brightness", "amount": 1, ... } ] }
 //
 // The same file works in three places: the browser library (localStorage),
@@ -15,10 +17,24 @@ export const FORMAT = 'flamebeat-mapping';
 export const VERSION = 1;
 const LIBRARY = 'flamebeat.mappings.v1';
 
-export function makeMapping({ name, flame, fade, routes }) {
+const toHex = (rgb) => '#' + rgb.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, '0')).join('');
+const fromHex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+
+/** Palette stops [[pos, [r,g,b]]] <-> the file's [[pos, "#rrggbb"]]. */
+export const paletteToFile = (stops) => stops.map(([p, c]) => [Math.round(p * 1e4) / 1e4, toHex(c)]);
+export function paletteFromFile(v) {
+  if (!Array.isArray(v) || v.length < 2) return null;
+  const ok = v.every((s) => Array.isArray(s) && Number.isFinite(s[0]) && s[0] >= 0 && s[0] <= 1
+    && typeof s[1] === 'string' && /^#[0-9a-f]{6}$/i.test(s[1]));
+  return ok ? v.map(([p, h]) => [p, fromHex(h)]).sort((a, b) => a[0] - b[0]) : null;
+}
+
+/** `palette` is flame-style stops ([[pos, [r,g,b]]]) or null for the fractal's own. */
+export function makeMapping({ name, flame, fade, palette, routes }) {
   const m = { format: FORMAT, version: VERSION, name: String(name || 'untitled') };
   if (flame) m.flame = flame;
   if (Number.isFinite(fade)) m.fade = fade;
+  if (palette) m.palette = paletteToFile(palette);
   m.routes = structuredClone(routes ?? []);
   return m;
 }
@@ -39,8 +55,10 @@ export function parseMapping(json) {
     return ok;
   });
   const fade = Number(json.fade);
+  const palette = json.palette == null ? null : paletteFromFile(json.palette);
+  if (json.palette != null && !palette) warnings.push('palette ignored: expected [[position 0–1, "#rrggbb"], …] with at least 2 stops');
   return {
-    mapping: makeMapping({ name: json.name, flame: json.flame, fade: Number.isFinite(fade) && fade >= 0 ? fade : undefined, routes }),
+    mapping: makeMapping({ name: json.name, flame: json.flame, fade: Number.isFinite(fade) && fade >= 0 ? fade : undefined, palette, routes }),
     warnings,
   };
 }

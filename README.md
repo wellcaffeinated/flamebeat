@@ -38,7 +38,7 @@ HTTP Range requests, and without them the browser can't seek in the audio.
 | ← / → | seek −5 s / +5 s (shift: 30 s) |
 | P | next preset |
 | D | debug overlay (live signal bars, drum and beat flashes, chroma) |
-| M | route editor (also the **routes** button): pick source → parameter, set amount |
+| M | route editor (also the **routes** button): pick source → parameter, set curve and amount, ▸ for range and smoothing; **look** tab for the palette |
 | [ / ] | fewer / more iterations per frame |
 | H | hide the bottom bar and HUD |
 
@@ -64,15 +64,28 @@ URL parameters: `track=<name>` (loads `../assets/audio/<name>.mp3` and
 
 ### Saving mappings
 
-A *mapping* is the routes plus the fade time and which fractal preset to use.
+A *mapping* is the routes plus the fade time, which fractal preset to use and
+the custom palette, if there is one.
 In the route editor (M), the **mapping** row saves it under a name in this
 browser, loads, deletes, **exports** a `.flamebeat.json` file and **imports**
 one. Put an exported file in `web/mappings/` and open
 `?mapping=mappings/<file>.json` to start with it (this doesn't overwrite the
 routes the editor remembers; `?preset=` still overrides its fractal).
 `web/mappings/teal-defaults.json` is the default routes on the teal fractal.
-Format: `{ "format": "flamebeat-mapping", "version": 1, "name", "flame", "fade", "routes": [...] }`;
-routes with unknown sources/parameters are skipped with a warning.
+Format: `{ "format": "flamebeat-mapping", "version": 1, "name", "flame", "fade", "palette", "routes": [...] }`;
+routes with unknown sources/parameters are skipped with a warning. `palette` is
+optional, `[[position 0–1, "#rrggbb"], …]`; a mapping without one uses the
+fractal's own palette.
+
+### Palette
+
+The **look** tab of the route editor edits the palette: a gradient strip drawn
+the way the renderer builds it, with a marker per colour stop. Click a marker
+to pick its colour, drag it to move the stop, double-click the strip to add a
+stop; **copy palette from…** starts from another fractal's colours, **reverse**
+flips it, **use fractal's own** drops the custom palette. A custom palette stays
+when you switch fractal with P, is remembered in this browser, and is saved
+with a mapping (and so used by video renders).
 
 ### Rendering a video
 
@@ -146,8 +159,13 @@ route adds `amount × (range value − neutral)` to its target, so routes to the
 same target stack, 0 switches a route off and negative amounts invert it.
 
 The **route editor** (M, or the *routes* button) edits this table live: a
-source select, a target select and an amount slider (−2…2, double-click resets
-to 1) per row, plus a live envelope meter, add/remove, and reset to defaults.
+source select, a target select, a response curve and an amount slider (−2…2,
+double-click resets to 1) per row, plus a live envelope meter, add/remove, and
+reset to defaults. ▸ opens the row's details: its output **range** (the
+parameter values for the quietest and strongest source at amount 1; drag the
+ends of the bar or type them, a reversed range inverts the route; the dot is
+the live value, the tick the neutral value) and **smoothing**. ▸ is lit when
+the range differs from the default for that source and parameter.
 Edits are saved in `localStorage`. Sources: volume, intensity, flux, the four
 band energies, kick/snare/hat/beat/onset/note hits, chroma and bass pitch.
 

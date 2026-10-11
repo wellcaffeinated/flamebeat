@@ -474,3 +474,22 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   not black; cancel discards and live view resumes. Not verified: speed and
   look on a real GPU at full quality; AAC (not in this Chromium).
 
+- 2026-10-11: **Palette + route ranges without a busier panel.** The route
+  editor got two tabs. *routes*: the curve stays on the main row; ▸ opens a
+  detail line per route with its output range (`out`, at amount 1) as a bar
+  with two draggable ends plus number fields, the neutral tick and the live
+  value, and the smoothing select (moved there). ▸ is lit when the range
+  differs from the source/target default; "default" removes the override (for
+  the curated MAPPINGS rows that means the pairing default, not the row's
+  curated range). The bar widens when a typed value falls outside it.
+  *look* (`palette-ui.js`): a gradient strip drawn with the renderer's own
+  `buildPalette`, one marker per stop (click = native colour picker, drag =
+  move, double-click strip = add), copy from another fractal, reverse, remove,
+  use fractal's own. A custom palette (`localStorage flamebeat.palette`) is
+  kept across P and reloads, saved in mappings as an optional
+  `palette: [[pos, "#rrggbb"]]` (format still v1, additive) and so used by
+  video renders; a mapping without one means the fractal's own. Checked by
+  `tools/routes.mjs` (range fold) and new `tools/look.mjs` (both in
+  `just verify`). Not done: per-parameter floors/clamps (option b, not wanted
+  for now); colour picking itself only checked via the input's events (the
+  native picker can't be driven headless).

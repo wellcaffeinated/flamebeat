@@ -7,7 +7,7 @@
 //   fade=0.15               trail fade time constant in seconds (0 = clear every frame); also the fade slider
 //   decay=0.9               (legacy) fixed per-frame decay instead of a fade time
 //   t=<seconds>              start position
-//   mapping=<url>            load a saved mapping file (routes, fade, fractal), e.g. mappings/teal.json;
+//   mapping=<url>            load a saved mapping file (routes, fade, fractal, palette), e.g. mappings/teal.json;
 //                            it is not written over the editor's own saved routes
 //   follow=1                 enable camera follow (off by default: its random re-framing wobbles the view)
 //   clock=manual             (testing) time is set via window.__setTime(t), not audio
@@ -19,7 +19,8 @@ import { Timeline, AudioClock } from './timeline.js';
 import { Mapper, applyMods, MAP_DEFAULTS } from './mapping.js';
 import { DebugOverlay } from './overlay.js';
 import { RoutesPanel, loadRoutes } from './routes-ui.js';
-import { fetchMapping } from './mappings.js';
+import { fetchMapping, paletteFromFile } from './mappings.js';
+import { PaletteEditor } from './palette-ui.js';
 import { RenderPanel } from './render-ui.js';
 import { renderVideo, FORMATS } from './video.js';
 
@@ -42,6 +43,7 @@ const state = {
   itersPerThread: num('iters', 178),
   decay: q.has('decay') ? num('decay', 0.9) : null,   // fixed per-frame decay overrides the fade time
   fade: num('fade', loadFade()),
+  palette: loadPalette(),   // custom palette stops, or null = each fractal's own
   lastFrameMs: null,
   frames: 0, itersWindow: 0, tWindow: performance.now(), fps: 0, ips: 0,
   timeline: null,
@@ -56,6 +58,17 @@ function loadFade() {
   try { const v = Number(localStorage.getItem('flamebeat.fade')); if (localStorage.getItem('flamebeat.fade') != null && Number.isFinite(v)) return v; } catch { /* storage blocked */ }
   return 0.15;
 }
+// custom palette: kept across fractal changes (P) and reloads; null = the fractal's own
+function loadPalette() {
+  try { const v = JSON.parse(localStorage.getItem('flamebeat.palette')); return Array.isArray(v) && v.length >= 2 ? v : null; } catch { return null; }
+}
+function savePalette() {
+  try {
+    if (state.palette) localStorage.setItem('flamebeat.palette', JSON.stringify(state.palette));
+    else localStorage.removeItem('flamebeat.palette');
+  } catch { /* storage blocked */ }
+}
+
 const fadeInput = $('fade'), fadeOut = $('fade-val');
 const FADE_MAX = 3;   // slider position u -> FADE_MAX * u^2 seconds: fine control near 0
 function showFade() {
@@ -92,10 +105,23 @@ try {
 
 function loadPreset(i, aspect = canvas.clientWidth / canvas.clientHeight) {
   const f = clone(presets[i]);
+  if (state.palette) f.palette = structuredClone(state.palette);
   if (f.camera === 'auto' || f.camera == null) f.camera = autoFrame(f, aspect);
   return f;
 }
 let base = loadPreset(state.presetIndex);
+
+/** Switch to a custom palette (stops) or back to the fractal's own (null); live. */
+function setPalette(stops, { persist = true } = {}) {
+  state.palette = stops ? structuredClone(stops) : null;
+  base.palette = structuredClone(stops ?? presets[state.presetIndex].palette);
+  if (persist) savePalette();
+}
+routesPanel.look = new PaletteEditor(document.createElement('div'), {
+  palette: () => ({ stops: base.palette, custom: !!state.palette, flame: base.name }),
+  setPalette: (stops) => setPalette(stops),
+  presets: () => presets,
+});
 
 // ---------------------------------------------------------------- mapping presets
 // A mapping = routes + fade time + which fractal. `persist: false` (for ?mapping=)
@@ -106,6 +132,8 @@ function applyMapping(m, { persist = true, keepFlame = false } = {}) {
     if (i < 0) console.warn(`mapping "${m.name}": no fractal preset named "${m.flame}", keeping "${base.name}"`);
     else if (i !== state.presetIndex) { state.presetIndex = i; base = loadPreset(i); renderer.clear(); }
   }
+  // a mapping without a palette uses the fractal's own
+  setPalette(m.palette ? paletteFromFile(m.palette) : null, { persist });
   if (m.fade != null) {
     state.fade = m.fade;
     showFade();
@@ -114,7 +142,7 @@ function applyMapping(m, { persist = true, keepFlame = false } = {}) {
   routesPanel.setRows(m.routes, { persist, name: m.name });
 }
 routesPanel.hooks = {
-  current: () => ({ flame: base.name, fade: state.fade }),
+  current: () => ({ flame: base.name, fade: state.fade, palette: state.palette }),
   apply: (m) => applyMapping(m),
 };
 if (q.has('mapping')) {
@@ -253,7 +281,7 @@ function frame(nowMs) {
   window.__flamebeat = {
     frames: renderer.frameNo, fps: state.fps, ips: state.ips, t, audioT: audio.currentTime,
     adapter: renderer.adapter.info?.vendor, timeline: !!state.timeline,
-    preset: base.name, mods: lastMods,
+    preset: base.name, mods: lastMods, palette: base.palette,
   };
   requestAnimationFrame(frame);
 }
@@ -308,6 +336,7 @@ window.addEventListener('keydown', (e) => {
       state.presetIndex = (state.presetIndex + 1) % presets.length;
       base = loadPreset(state.presetIndex);
       renderer.clear();
+      if (routesPanel.visible && routesPanel.tab === 'look') routesPanel.render();
       break;
     case 'd': case 'D': overlay.toggle(); break;
     case 'm': case 'M': routesPanel.toggle(); break;

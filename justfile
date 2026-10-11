@@ -34,4 +34,5 @@ verify port="8000":
     cd tools && node keys.mjs ../analysis/out/verify/keys.png http://localhost:{{port}}/web/
     cd tools && node routes.mjs ../analysis/out/verify/routes.png http://localhost:{{port}}/web/
     cd tools && node mappings.mjs http://localhost:{{port}}/web/
+    cd tools && node look.mjs ../analysis/out/verify/look.png http://localhost:{{port}}/web/
     cd tools && node video.mjs ../analysis/out/verify http://localhost:{{port}}/web/
