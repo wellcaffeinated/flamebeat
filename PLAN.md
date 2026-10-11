@@ -49,7 +49,8 @@ justfile             common tasks: fetch, analyze, serve
 ```json
 {
   "version": 1,
-  "track": {"file": "...", "duration": 183.2, "sr": 22050, "tempo": 100.2},
+  "track": {"file": "...", "duration": 183.2, "sr": 22050, "tempo": 100.2,
+            "meter": {"pulses": 9, "unit": 8, "groups": [3, 3, 3]}},   // tempo = pulses per minute
   "rate": 100,
   "continuous": {
     "volume":   [...],                                  // momentary LUFS mapped to 0..1, plus raw dB in "volume_db"
@@ -63,7 +64,7 @@ justfile             common tasks: fetch, analyze, serve
     "drums": [{"t": 12.341, "type": "kick|snare|hat", "strength": 0.92}],
     "onsets": [{"t": 12.34, "strength": 0.8}],
     "notes": [{"t": 12.30, "dur": 0.4, "midi": 45, "vel": 0.7}],
-    "beats": [{"t": 12.34, "downbeat": true}]
+    "beats": [{"t": 12.34, "downbeat": true, "bar_pos": 0, "group_start": true}]
   }
 }
 ```
@@ -394,3 +395,17 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   downbeats are wrong here; nothing in the visualizer uses downbeats yet
   (only the debug overlay and plot). librosa's beat grid also wobbles on this
   track (intervals 0.30-0.40 s around the true 0.39 s pulse).
+- 2026-10-11: **Meter option.** `analyze.py --meter 9/8 [--groups 2+2+2+3]`
+  (`just analyze <file> 9/8`): bars are `pulses` tracked beats (the tracked
+  beat is the meter's pulse, here the eighth at 153.8/min), downbeat phase by
+  kick energy as before; compound meters group in 3s by default. Additive
+  schema: `track.meter`, `beats[].bar_pos`, `beats[].group_start`. Web: sources
+  **downbeat (bar)** and **group beat** (Timeline derives `downbeats` /
+  `groupbeats`; old timelines fall back to 4/4, every beat a group start), meter
+  in the status line, bar position in the debug overlay.
+  Thirteen TeV re-analysed as 9/8: 80 bars, bar length 3.50-3.60 s (no drift).
+  Doubts: the chosen "1" only narrowly beats pulse 8 on kick energy (0.73 vs
+  0.71), and snare/hat accents fall on pulses 1 and 5 with the kick weakest on
+  4, which fits 4+5 or 2+2+2+3 better than 3+3+3. Grouping left at 3+3+3
+  pending the user's ear.
+

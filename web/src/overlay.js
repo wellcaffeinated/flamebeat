@@ -48,7 +48,8 @@ export class DebugOverlay {
       row(k, v, COLORS[k]);
     }
     const beat = tl.eventsIn('beats', t - 0.12, t)[0];
-    row(beat?.downbeat ? 'beat (downbeat)' : 'beat', beat ? 1 - (t - beat.t) / 0.12 : 0, beat?.downbeat ? COLORS.downbeat : COLORS.beat);
+    const pos = beat?.bar_pos != null ? ` ${beat.bar_pos + 1}/${tl.meter.pulses}` : '';
+    row(beat?.downbeat ? `beat${pos} (downbeat)` : `beat${pos}`, beat ? 1 - (t - beat.t) / 0.12 : 0, beat?.downbeat ? COLORS.downbeat : COLORS.beat);
     const f0 = tl.sampleNearest('pitch.bass.f0', t);
     const conf = tl.sample('pitch.bass.conf', t);
     row('bass conf', conf, '#fc6', f0 > 0 ? `${f0.toFixed(0)}Hz` : '—');

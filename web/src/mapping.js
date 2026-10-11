@@ -56,7 +56,10 @@ export const SOURCES = {
   kick: { label: 'kick hit', src: { impulse: 'kick' }, impulse: { attack: 0.008, release: 0.15 } },
   snare: { label: 'snare hit', src: { impulse: 'snare' }, impulse: { attack: 0.005, release: 0.2 } },
   hat: { label: 'hat hit', src: { impulse: 'hat' }, impulse: { attack: 0.004, release: 0.07 } },
-  beat: { label: 'beat', src: { impulse: 'beats' }, impulse: { attack: 0.005, release: 0.15 } },
+  beat: { label: 'beat (pulse)', src: { impulse: 'beats' }, impulse: { attack: 0.005, release: 0.15 } },
+  // bar structure from the analysis meter (--meter 9/8: group beat = each dotted quarter, 3 per bar)
+  groupBeat: { label: 'group beat', src: { impulse: 'groupbeats' }, impulse: { attack: 0.005, release: 0.3 } },
+  downbeat: { label: 'downbeat (bar)', src: { impulse: 'downbeats' }, impulse: { attack: 0.005, release: 0.6 } },
   onset: { label: 'onset', src: { impulse: 'onsets' }, impulse: { attack: 0.005, release: 0.1 } },
   note: { label: 'note', src: { impulse: 'notes' }, impulse: { attack: 0.005, release: 0.15 } },
   chroma: { label: 'chroma (average)', src: { derived: 'chromaPos' }, env: { attack: 0.6, release: 0.6 }, circular: true, out: [0, 0.35] },

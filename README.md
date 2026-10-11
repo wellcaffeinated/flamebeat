@@ -52,6 +52,10 @@ URL parameters: `track=<name>` (loads `../assets/audio/<name>.mp3` and
 1. Put the audio file in `assets/audio/` (gitignored). Record its license in
    `assets/ATTRIBUTION.md`.
 2. Run `just analyze assets/audio/<name>.mp3`. This writes `web/timelines/<name>.json`.
+   For a meter other than 4/4 pass it as the second argument, e.g.
+   `just analyze "assets/audio/<name>.mp3" 9/8` (`analyze.py --meter 9/8 --groups 2+2+2+3`
+   to change the grouping; 6/8, 9/8 and 12/8 default to groups of 3). The meter is
+   not detected: bars are counted in tracked beats (the meter's pulse).
    Check `analysis/out/<name>.png` (overview) and `<name>_zoom.png`. To zoom
    into another window, run `uv run python plot.py ... --start S --dur D` in `analysis/`.
 3. Open `http://localhost:8000/web/?track=<name>`, or use the **open…** button

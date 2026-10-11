@@ -37,6 +37,11 @@ export class Timeline {
     }
     this.drumsByType = {};
     for (const d of this.events.drums ?? []) (this.drumsByType[d.type] ??= []).push(d);
+    // bar structure (track.meter, beats[].bar_pos / group_start; older timelines: 4/4, no groups)
+    this.meter = json.track?.meter ?? { pulses: 4, unit: 4, groups: [1, 1, 1, 1] };
+    const beats = this.events.beats ?? [];
+    this.events.downbeats = beats.filter((b) => b.downbeat);
+    this.events.groupbeats = beats.filter((b) => b.group_start ?? true);
   }
 
   has(name) { return this.streams.has(name); }

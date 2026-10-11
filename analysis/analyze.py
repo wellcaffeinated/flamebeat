@@ -1,6 +1,6 @@
 """flamebeat offline analysis: audio file -> timeline JSON (schema v1, see PLAN.md).
 
-usage: uv run python analyze.py <audio> -o <timeline.json>
+usage: uv run python analyze.py <audio> -o <timeline.json> [--meter 9/8] [--groups 2+2+2+3]
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import time
 
 import numpy as np
 
-from features.beats import beats
+from features.beats import DEFAULT_METER, beats, parse_meter
 from features.common import RATE, SR, load
 from features.energy import energy
 from features.pitch import bass_f0, chroma, notes
@@ -42,7 +42,14 @@ def main(argv=None) -> int:
     ap.add_argument("audio")
     ap.add_argument("-o", "--out", required=True, help="output timeline JSON path")
     ap.add_argument("--no-notes", action="store_true", help="skip basic-pitch note transcription")
+    ap.add_argument("--meter", default=DEFAULT_METER,
+                    help="time signature, e.g. 4/4, 7/8, 9/8; the tracked beat is its pulse (default %(default)s)")
+    ap.add_argument("--groups", help="pulse grouping within a bar, e.g. 2+2+2+3 (default: 3s for 6/8 9/8 12/8, else 1s)")
     args = ap.parse_args(argv)
+    try:
+        meter = parse_meter(args.meter, args.groups)
+    except ValueError as e:
+        ap.error(str(e))
 
     t0 = time.time()
 
@@ -59,9 +66,10 @@ def main(argv=None) -> int:
     tr = transients(a)
 
     step("beats")
-    bt = beats(a, kick_env=tr["env"]["kick"], onset_times=tr["candidates"] / RATE)
+    bt = beats(a, kick_env=tr["env"]["kick"], onset_times=tr["candidates"] / RATE, meter=meter)
     step(f"  tempo {bt['tempo']:.1f} BPM, {len(bt['beats'])} beats, "
-         f"grid offset {bt['offset'] * 1000:+.0f} ms, downbeat phase {bt['phase']}")
+         f"grid offset {bt['offset'] * 1000:+.0f} ms, meter {args.meter} {'+'.join(map(str, meter['groups']))}, "
+         f"downbeat phase {bt['phase']}")
     counts = {k: sum(d["type"] == k for d in tr["drums"]) for k in ("kick", "snare", "hat")}
     step(f"  drums {counts}, onsets {len(tr['onsets'])}")
 
@@ -96,7 +104,7 @@ def main(argv=None) -> int:
     timeline = {
         "version": 1,
         "track": {"file": os.path.basename(args.audio), "duration": round(a.duration, 3), "sr": SR,
-                  "tempo": round(bt["tempo"], 2)},
+                  "tempo": round(bt["tempo"], 2), "meter": meter},
         "rate": RATE,
         "continuous": continuous,
         "events": events,

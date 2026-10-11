@@ -7,9 +7,9 @@ default:
 fetch:
     scripts/fetch-test-track.sh
 
-# analyze an audio file -> web/timelines/<stem>.json (+ diagnostic PNG in analysis/out/)
-analyze file:
-    cd analysis && uv run python analyze.py "{{absolute_path(file)}}" -o "{{justfile_directory()}}/web/timelines/{{file_stem(file)}}.json"
+# analyze an audio file -> web/timelines/<stem>.json (+ diagnostic PNG in analysis/out/); meter e.g. 9/8
+analyze file meter="4/4":
+    cd analysis && uv run python analyze.py "{{absolute_path(file)}}" -o "{{justfile_directory()}}/web/timelines/{{file_stem(file)}}.json" --meter {{meter}}
     cd analysis && uv run python plot.py "{{justfile_directory()}}/web/timelines/{{file_stem(file)}}.json" -o "out/{{file_stem(file)}}.png"
 
 # analyze every audio file in assets/audio/

@@ -129,7 +129,9 @@ async function loadTimelineFrom(urlOrFile) {
       : JSON.parse(await urlOrFile.text());
     state.timeline = new Timeline(json);
     state.mapper = new Mapper(state.timeline, routesPanel.rows, mapOpts);
+    const m = state.timeline.meter;
     setStatus(`${json.track?.file ?? 'timeline'} · ${state.timeline.tempo.toFixed(1)} BPM · `
+      + `${m.pulses}/${m.unit}${m.groups.some((g) => g > 1) ? ` (${m.groups.join('+')})` : ''} · `
       + `${state.timeline.events.drums?.length ?? 0} drum hits`);
     return true;
   } catch (e) {
