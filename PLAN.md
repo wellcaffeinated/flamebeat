@@ -303,3 +303,14 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   jitters about 1%. Measured headless: brightness-centre drift 0.28% of width
   with follow on vs 0.03% (render noise) with it off. Trade-off: heavy spin
   can now carry presets partly out of frame (the original reason for follow).
+- 2026-10-11: Preset 3 "julia bloom teal", imported from flame-fractal's
+  `examples/julia-bloom-dense-teal-hires.json` via `fromFlameFractal()` in
+  `presets.js` (camera zoom = units across the short side there → `2 / zoom`
+  here; palette stops spread over 0..1 inclusive, no wrap; background /255).
+  flamebeat's julia used `atan2(y, x)` while flame-fractal/flam3 use the paper's
+  `atan2(x, y)`; added a per-flame `juliaAtan: 'xy'` flag (shader `misc.y` + CPU
+  sampler) rather than change it globally, so presets 0–2 look the same.
+  Original brightness/gamma/vibrancy work as-is despite the different tone map:
+  a headless render without timeline (decay 0.98) matches the reference by eye.
+  With the music on, chroma/snare palette offsets push it toward the peach
+  end of the gradient. `just test` and `verify.mjs` pass.

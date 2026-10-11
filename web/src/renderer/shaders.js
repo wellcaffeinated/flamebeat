@@ -24,7 +24,7 @@ struct Params {
   cam:  vec4f,   // centre x, centre y, zoom, rotation (rad)
   tone: vec4f,   // brightness, gamma, vibrancy, k2 (density scale)
   bg:   vec4f,   // background rgb, palette offset
-  misc: vec4f,   // decay, unused...
+  misc: vec4f,   // decay, julia angle convention (1 = atan2(x, y)), unused...
 };
 
 struct Xform {
@@ -89,7 +89,9 @@ fn applyXform(xf: Xform, p: vec2f) -> vec2f {
   // julia
   if (xf.w2.y != 0.0) {
     let omega = select(0.0, PI, (pcg() & 1u) == 1u);
-    let a = atan2(y, x) * 0.5 + omega;
+    // flamebeat's presets were tuned with atan2(y, x); flames imported from
+    // flame-fractal (and flam3) use the paper's atan2(x, y)
+    let a = select(atan2(y, x), theta, P.misc.y > 0.5) * 0.5 + omega;
     o += xf.w2.y * sqrt(r) * vec2f(cos(a), sin(a));
   }
   return o;

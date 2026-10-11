@@ -176,7 +176,7 @@ export class FlameRenderer {
     f.set([flame.brightness, flame.gamma, flame.vibrancy, k2], 12);
     const bg = flame.background ?? [0, 0, 0];
     f.set([bg[0], bg[1], bg[2], opts.paletteOffset ?? 0], 16);
-    f.set([decay, 0, 0, 0], 20);
+    f.set([decay, flame.juliaAtan === 'xy' ? 1 : 0, 0, 0], 20);
     this.device.queue.writeBuffer(this.paramBuf, 0, this.paramData);
   }
 

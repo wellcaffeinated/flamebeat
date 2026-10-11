@@ -43,7 +43,7 @@ HTTP Range requests, and without them the browser can't seek in the audio.
 | H | hide the bottom bar and HUD |
 
 URL parameters: `track=<name>` (loads `../assets/audio/<name>.mp3` and
-`timelines/<name>.json`), `audio=<url>`, `timeline=<url>`, `preset=0..2`,
+`timelines/<name>.json`), `audio=<url>`, `timeline=<url>`, `preset=0..3`,
 `chains=65536`, `iters=16`, `decay=0.9`, `res=1` (resolution scale),
 `lookahead=0.03`, `t=<s>` (start position), `follow=1` (turn on camera follow).
 

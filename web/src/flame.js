@@ -2,7 +2,8 @@
 // {
 //   name, xforms: [{ weight, color, colorSpeed, affine: [a,b,c,d,e,f], vars: {linear: 1, ...}, opacity }],
 //   final: null | xform, camera: { x, y, zoom, angle }, palette: [[pos, [r,g,b]], ...],
-//   brightness, gamma, vibrancy, exposure, background: [r,g,b]
+//   brightness, gamma, vibrancy, exposure, background: [r,g,b],
+//   juliaAtan: 'yx' (default) | 'xy' (paper / flame-fractal convention)
 // }
 // Affine convention: x' = a x + b y + c,  y' = d x + e y + f.
 
@@ -37,7 +38,7 @@ export function clampContractive(aff, maxGain = 0.95) {
 
 // ---- CPU reference of the variations (used for auto-framing only) --------
 const PI = Math.PI;
-function applyXformCPU(x, p) {
+function applyXformCPU(x, p, juliaXY = false) {
   const [a, b, c, d, e, f] = x.affine;
   const tx = a * p[0] + b * p[1] + c;
   const ty = d * p[0] + e * p[1] + f;
@@ -57,7 +58,7 @@ function applyXformCPU(x, p) {
   if (v.disc) add(v.disc, (th / PI) * Math.sin(PI * r), (th / PI) * Math.cos(PI * r));
   if (v.spiral) add(v.spiral, (Math.cos(th) + Math.sin(r)) / r, (Math.sin(th) - Math.cos(r)) / r);
   if (v.julia) {
-    const ang = Math.atan2(ty, tx) / 2 + (Math.random() < 0.5 ? 0 : PI);
+    const ang = (juliaXY ? th : Math.atan2(ty, tx)) / 2 + (Math.random() < 0.5 ? 0 : PI);
     const sr = Math.sqrt(r);
     add(v.julia, sr * Math.cos(ang), sr * Math.sin(ang));
   }
@@ -67,19 +68,20 @@ function applyXformCPU(x, p) {
 /** Sample the attractor on the CPU: returns an array of [x, y] (after final xform). */
 export function sampleAttractor(flame, n = 20000) {
   const xs = flame.xforms;
+  const jxy = flame.juliaAtan === 'xy';
   const tot = xs.reduce((s, x) => s + Math.max(0, x.weight), 0);
   let p = [Math.random() * 2 - 1, Math.random() * 2 - 1];
   const out = [];
   for (let i = 0; i < n + 50; i++) {
     let u = Math.random() * tot, j = 0;
     while (j < xs.length - 1 && (u -= Math.max(0, xs[j].weight)) > 0) j++;
-    p = applyXformCPU(xs[j], p);
+    p = applyXformCPU(xs[j], p, jxy);
     if (!Number.isFinite(p[0]) || !Number.isFinite(p[1]) || Math.abs(p[0]) > 1e6 || Math.abs(p[1]) > 1e6) {
       p = [Math.random() * 2 - 1, Math.random() * 2 - 1];
       continue;
     }
     if (i < 50) continue;
-    out.push(flame.final ? applyXformCPU(flame.final, p) : p);
+    out.push(flame.final ? applyXformCPU(flame.final, p, jxy) : p);
   }
   return out;
 }
