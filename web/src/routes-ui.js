@@ -5,6 +5,7 @@
 // offers to switch to them instead of silently keeping the old ones.
 
 import { SOURCES, TARGETS, MAPPINGS, CURVES, resolve } from './mapping.js';
+import { makeMapping, library, download, readFile } from './mappings.js';
 
 /** Smoothing windows offered for continuous sources (seconds; '' = off). */
 // keys are '2s' etc. so the object keeps this order (integer-like keys would sort first)
@@ -83,6 +84,81 @@ export class RoutesPanel {
     this.render();
   }
 
+  /**
+   * Mapping presets. main.js sets `hooks = { current(): { flame, fade }, apply(mapping) }`:
+   * current() supplies the non-route parts to save, apply() switches flame/fade
+   * and then calls setRows().
+   */
+  hooks = null;
+  mappingName = '';
+  mappingMsg = '';
+
+  /** Replace all routes (from a mapping). persist = false keeps the editor's saved routes untouched. */
+  setRows(rows, { persist = true, name } = {}) {
+    this.rows = structuredClone(rows);
+    if (name != null) this.mappingName = name;
+    if (persist) saveRoutes(this.rows);
+    this.onChange(this.rows);
+    this.render();
+  }
+
+  currentMapping(name = this.mappingName) {
+    return makeMapping({ name, ...(this.hooks?.current() ?? {}), routes: this.rows });
+  }
+
+  applyMapping({ mapping, warnings }, verb = 'loaded') {
+    this.mappingMsg = [`${verb} “${mapping.name}”`, ...warnings].join(' · ');
+    if (this.hooks) this.hooks.apply(mapping);
+    else this.setRows(mapping.routes, { name: mapping.name });
+  }
+
+  mappingBar() {
+    const msg = el('span', { className: 'mapping-msg', textContent: this.mappingMsg });
+    const say = (t) => { this.mappingMsg = t; msg.textContent = t; };
+    const names = library.names();
+    const load = el('select', { title: 'load a saved mapping' },
+      el('option', { value: '', textContent: names.length ? 'load…' : 'no saved mappings' }),
+      ...names.map((n) => el('option', { value: n, textContent: n, selected: n === this.mappingName })));
+    load.addEventListener('change', () => {
+      const got = load.value && library.get(load.value);
+      if (got) this.applyMapping(got);
+    });
+    const name = el('input', { type: 'text', value: this.mappingName, placeholder: 'mapping name', title: 'name to save as' });
+    const button = (text, title, onclick) => Object.assign(el('button', { type: 'button', textContent: text, title }), { onclick });
+    const file = el('input', { type: 'file', accept: '.json,application/json', hidden: true });
+    file.addEventListener('change', async () => {
+      try {
+        const got = await readFile(file.files[0]);
+        library.save(got.mapping);
+        this.applyMapping(got, 'imported');
+      } catch (e) { say(`import failed: ${e.message}`); }
+    });
+    return el('div', { className: 'mapping-bar' },
+      el('span', { className: 'hint', textContent: 'mapping' }), load, name,
+      button('save', 'save routes, fade time and fractal under this name (in this browser)', () => {
+        const n = name.value.trim();
+        if (!n) { say('give the mapping a name first'); name.focus(); return; }
+        if (n !== this.mappingName && library.names().includes(n) && !confirm(`Replace the saved mapping “${n}”?`)) return;
+        this.mappingName = n;
+        say(library.save(this.currentMapping(n)) ? `saved “${n}”` : 'could not save (browser storage blocked?)');
+        this.render();
+      }),
+      button('delete', 'delete the selected saved mapping', () => {
+        const n = load.value || this.mappingName;
+        if (!n || !library.names().includes(n)) { say('pick a saved mapping to delete'); return; }
+        if (!confirm(`Delete the saved mapping “${n}”?`)) return;
+        library.remove(n);
+        if (n === this.mappingName) this.mappingName = '';
+        say(`deleted “${n}”`);
+        this.render();
+      }),
+      button('export', 'download as a .json file (use it with ?mapping=… or for rendering)', () => {
+        download(this.currentMapping(name.value.trim() || this.mappingName || 'mapping'));
+      }),
+      button('import', 'load a mapping .json file (also adds it to the saved list)', () => file.click()),
+      file, msg);
+  }
+
   get visible() { return !this.root.hidden; }
   toggle() { this.root.hidden = !this.root.hidden; }
 
@@ -103,7 +179,7 @@ export class RoutesPanel {
     r.append(el('div', { className: 'routes-head' },
       el('b', { textContent: 'routes' }),
       el('span', { className: 'hint', textContent: 'source → parameter · curve · smooth · amount' }),
-      legendBtn), legend);
+      legendBtn), legend, this.mappingBar());
     document.getElementById('routes-btn')?.classList.toggle('stale', routesStale());
     if (routesStale()) {
       r.append(el('div', { className: 'routes-stale' },

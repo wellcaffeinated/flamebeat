@@ -62,6 +62,18 @@ URL parameters: `track=<name>` (loads `../assets/audio/<name>.mp3` and
    to pick an audio file. The page loads `timelines/<stem>.json` automatically;
    you can also pick the audio file and its JSON together.
 
+### Saving mappings
+
+A *mapping* is the routes plus the fade time and which fractal preset to use.
+In the route editor (M), the **mapping** row saves it under a name in this
+browser, loads, deletes, **exports** a `.flamebeat.json` file and **imports**
+one. Put an exported file in `web/mappings/` and open
+`?mapping=mappings/<file>.json` to start with it (this doesn't overwrite the
+routes the editor remembers; `?preset=` still overrides its fractal).
+`web/mappings/teal-defaults.json` is the default routes on the teal fractal.
+Format: `{ "format": "flamebeat-mapping", "version": 1, "name", "flame", "fade", "routes": [...] }`;
+routes with unknown sources/parameters are skipped with a warning.
+
 ## How it works
 
 ### Analysis (`analysis/`, Python 3.10)

@@ -7,6 +7,8 @@
 //   fade=0.15               trail fade time constant in seconds (0 = clear every frame); also the fade slider
 //   decay=0.9               (legacy) fixed per-frame decay instead of a fade time
 //   t=<seconds>              start position
+//   mapping=<url>            load a saved mapping file (routes, fade, fractal), e.g. mappings/teal.json;
+//                            it is not written over the editor's own saved routes
 //   follow=1                 enable camera follow (off by default: its random re-framing wobbles the view)
 //   clock=manual             (testing) time is set via window.__setTime(t), not audio
 
@@ -17,6 +19,7 @@ import { Timeline, AudioClock } from './timeline.js';
 import { Mapper, applyMods, MAP_DEFAULTS } from './mapping.js';
 import { DebugOverlay } from './overlay.js';
 import { RoutesPanel, loadRoutes } from './routes-ui.js';
+import { fetchMapping } from './mappings.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? Number(q.get(k)) : d);
@@ -91,6 +94,39 @@ function loadPreset(i) {
   return f;
 }
 let base = loadPreset(state.presetIndex);
+
+// ---------------------------------------------------------------- mapping presets
+// A mapping = routes + fade time + which fractal. `persist: false` (for ?mapping=)
+// applies it without overwriting what the editor remembers in this browser.
+function applyMapping(m, { persist = true, keepFlame = false } = {}) {
+  if (m.flame && !keepFlame) {
+    const i = presets.findIndex((p) => p.name === m.flame);
+    if (i < 0) console.warn(`mapping "${m.name}": no fractal preset named "${m.flame}", keeping "${base.name}"`);
+    else if (i !== state.presetIndex) { state.presetIndex = i; base = loadPreset(i); renderer.clear(); }
+  }
+  if (m.fade != null) {
+    state.fade = m.fade;
+    showFade();
+    if (persist) try { localStorage.setItem('flamebeat.fade', String(state.fade)); } catch { /* ignore */ }
+  }
+  routesPanel.setRows(m.routes, { persist, name: m.name });
+}
+routesPanel.hooks = {
+  current: () => ({ flame: base.name, fade: state.fade }),
+  apply: (m) => applyMapping(m),
+};
+if (q.has('mapping')) {
+  try {
+    const { mapping, warnings } = await fetchMapping(q.get('mapping'));
+    applyMapping(mapping, { persist: false, keepFlame: q.has('preset') });
+    routesPanel.mappingMsg = [`loaded “${mapping.name}” from ${q.get('mapping')}`, ...warnings].join(' · ');
+    routesPanel.render();
+  } catch (e) {
+    console.warn('mapping load failed', e);
+    routesPanel.mappingMsg = `could not load mapping ${q.get('mapping')}: ${e.message}`;
+    routesPanel.render();
+  }
+}
 
 // camera follow: the mapping reshapes the attractor (spin, bass rotation), so
 // re-frame the *modulated* flame on the CPU every REFRAME_MS and ease the
@@ -257,5 +293,6 @@ window.__grab = async () => {
 };
 window.__setTime = (t) => { state.manualT = t; };
 window.__routes = routesPanel;
+window.__mapping = () => routesPanel.currentMapping();
 window.__overlay = (on = true) => { if (overlay.visible !== on) overlay.toggle(); };
 window.__renderer = renderer;

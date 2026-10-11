@@ -1,0 +1,101 @@
+{
+  "format": "flamebeat-mapping",
+  "version": 1,
+  "name": "teal defaults",
+  "flame": "julia bloom teal",
+  "fade": 0.15,
+  "routes": [
+    {
+      "src": "volume",
+      "target": "brightness",
+      "amount": 1
+    },
+    {
+      "src": "intensity",
+      "target": "brightness",
+      "amount": 1,
+      "curve": "quad",
+      "out": [
+        0.6,
+        1.8
+      ]
+    },
+    {
+      "src": "kick",
+      "target": "brightness",
+      "amount": 1,
+      "curve": "quad",
+      "out": [
+        1,
+        3.2
+      ],
+      "impulse": {
+        "attack": 0.008,
+        "release": 0.2
+      }
+    },
+    {
+      "src": "beat",
+      "target": "paletteKick",
+      "amount": 1,
+      "out": [
+        0,
+        0.06
+      ],
+      "impulse": {
+        "attack": 0.01,
+        "release": 0.25
+      }
+    },
+    {
+      "src": "snare",
+      "target": "paletteKick",
+      "amount": 1
+    },
+    {
+      "src": "intensity",
+      "target": "spin",
+      "amount": 1,
+      "curve": "exp",
+      "out": [
+        0.12,
+        10.1
+      ]
+    },
+    {
+      "src": "hat",
+      "target": "juliaJitter",
+      "amount": 1
+    },
+    {
+      "src": "chromaPeak",
+      "target": "hue",
+      "amount": 1
+    },
+    {
+      "src": "bassPitch",
+      "target": "xformRotate",
+      "amount": 1
+    },
+    {
+      "src": "sub",
+      "target": "finalSwirl",
+      "amount": 0
+    },
+    {
+      "src": "bass",
+      "target": "xformScale",
+      "amount": 0
+    },
+    {
+      "src": "intensity",
+      "target": "fade",
+      "amount": 0
+    },
+    {
+      "src": "snare",
+      "target": "colorSpeed",
+      "amount": 0
+    }
+  ]
+}

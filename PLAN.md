@@ -447,3 +447,13 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   other at +0.79). Plot: analysis/out/arousal-vs-intensity-thirteen.png. Likely
   out of domain (trained on 45 s pop/rock excerpts); left for the user to judge
   by ear.
+- 2026-10-11: **Mapping presets** (`web/src/mappings.js`): `{format:
+  "flamebeat-mapping", version 1, name, flame, fade, routes}`. Route editor
+  row: load / name / save / delete (localStorage `flamebeat.mappings.v1`),
+  export (.flamebeat.json download), import (also adds to the list).
+  `?mapping=<url>` applies one without overwriting the editor's saved routes
+  (`?preset=` wins over its fractal); unknown routes are dropped with a warning.
+  `web/mappings/teal-defaults.json` committed. `tools/mappings.mjs` (in
+  `just verify`) checks save/load/export/import/delete and `?mapping=`.
+  Designed so a future video render takes track + mapping file.
+
