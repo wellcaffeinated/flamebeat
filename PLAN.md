@@ -408,4 +408,5 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   0.71), and snare/hat accents fall on pulses 1 and 5 with the kick weakest on
   4, which fits 4+5 or 2+2+2+3 better than 3+3+3. Grouping left at 3+3+3
   pending the user's ear.
-
+- 2026-10-11: Smoothing windows offered: 0.1, 0.25, 0.5, 0.75, 1, 2 s (user's choice; a saved
+  row with another window keeps it and lists it).

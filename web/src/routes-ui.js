@@ -8,7 +8,9 @@ import { SOURCES, TARGETS, MAPPINGS, CURVES, resolve } from './mapping.js';
 
 /** Smoothing windows offered for continuous sources (seconds; '' = off). */
 // keys are '2s' etc. so the object keeps this order (integer-like keys would sort first)
-const SMOOTH = Object.fromEntries([['', 'raw'], ...[0.5, 1, 2, 4, 8, 16].map((v) => [`${v}s`, `avg ${v} s`])]
+const SMOOTH_S = [0.1, 0.25, 0.5, 0.75, 1, 2];
+const smoothOpts = (extra) => Object.fromEntries([['', 'raw'],
+  ...[...new Set([...SMOOTH_S, ...(extra ? [extra] : [])])].sort((a, b) => a - b).map((v) => [`${v}s`, `avg ${v} s`])]
   .map(([k, label]) => [k, { label }]));
 
 // v2: new default routes (beats -> brightness/palette, no zoom or iteration changes)
@@ -119,7 +121,8 @@ export class RoutesPanel {
       curve.title = 'response curve';
       if (def.circular) { curve.disabled = true; curve.title = 'circular source: no curve'; }
       // smoothing: only continuous (stream) sources can be averaged
-      const smooth = select(SMOOTH, row.smooth ? `${row.smooth}s` : '', (v) => {
+      // a saved window that is no longer offered stays listed, so the select shows what runs
+      const smooth = select(smoothOpts(row.smooth), row.smooth ? `${row.smooth}s` : '', (v) => {
         if (v) row.smooth = parseFloat(v); else delete row.smooth;
         this.changed();
       });

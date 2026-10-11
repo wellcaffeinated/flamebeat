@@ -72,7 +72,7 @@ export const SOURCES = {
 export const TARGETS = {
   brightness: { label: 'brightness', neutral: 1, out: [0.45, 1.25] },
   // rotates xform 0's input: with a julia xform the shape morphs in place (period 2π), it does not rotate
-  spin: { label: 'morph speed', neutral: 0, out: [0.03, 0.55], env: { curve: 1.5, attack: 0.5, release: 1.5 } },
+  spin: { label: 'morph speed', neutral: 0, out: [0.03, 3.0], env: { curve: 1.5, attack: 0.5, release: 1.5 } },
   iters: { label: 'iterations', neutral: 1, out: [0.55, 1.0] },
   zoomPulse: { label: 'zoom pulse', neutral: 0, out: [0, 0.09] },
   weightBump: { label: 'transform weight', neutral: 0, out: [0, 1.6] },
