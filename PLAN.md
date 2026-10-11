@@ -331,3 +331,12 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   localStorage key bumped to `flamebeat.routes.v2` so the new defaults apply.
   Note: the curve acts before the envelope, so with a frozen clock it only
   shows after time moves (`tools/routes.mjs` jumps time to check it).
+- 2026-10-11: New source **chroma peak**: the strongest pitch class (k/12),
+  held until it drops below 0.85x the new strongest (and the strongest is
+  >= 0.2), circular envelope 0.08 s. It is now the default palette-position
+  route and spans the whole gradient, so each note gets its own palette
+  rotation. The old circular mean is "chroma (average)" and keeps its
+  0..0.35 range via a new per-source `out` default (`MAP_DEFAULTS.paletteRange`
+  removed; `palettePos` is now added to the palette offset directly). On the
+  Thirteen TeV track it switches ~134x/min (median hold 0.20 s), mostly A, C,
+  F, E. Checked headless: C / E / A frames give visibly different colouring.

@@ -5,12 +5,13 @@
 // and resolve() expands it into the full form the Mapper runs:
 //   src      { stream: 'energy.intensity' }      continuous timeline stream
 //            { impulse: 'kick', attack, release } decaying impulse from events
-//            { derived: 'chromaPos' | 'bassPitch' }
+//            { derived: 'chromaPos' | 'chromaPeak' | 'bassPitch' }
 //   gain     multiply the source              (default 1)
 //   curve    shape applied after gain+clamp: a CURVES name ('quad', 'exp', ...)
 //            or a number (power; default 1, >1 = more contrast)
 //   attack / release   one-pole envelope time constants in seconds (media time)
 //   out      [min, max]  the 0..1 value is mapped linearly onto this range
+//            (row, then source, then target default)
 //   amount   scales the route's deviation from the target's neutral value
 //            (0 = off, 1 = as designed, negative = inverted)
 //   target   name of a modulation slot, consumed by applyMods() below
@@ -56,7 +57,9 @@ export const SOURCES = {
   beat: { label: 'beat', src: { impulse: 'beats' }, impulse: { attack: 0.005, release: 0.15 } },
   onset: { label: 'onset', src: { impulse: 'onsets' }, impulse: { attack: 0.005, release: 0.1 } },
   note: { label: 'note', src: { impulse: 'notes' }, impulse: { attack: 0.005, release: 0.15 } },
-  chroma: { label: 'chroma', src: { derived: 'chromaPos' }, env: { attack: 0.6, release: 0.6 }, circular: true },
+  chroma: { label: 'chroma (average)', src: { derived: 'chromaPos' }, env: { attack: 0.6, release: 0.6 }, circular: true, out: [0, 0.35] },
+  // strongest pitch class only: each note is its own palette position, over the whole gradient
+  chromaPeak: { label: 'chroma peak', src: { derived: 'chromaPeak' }, env: { attack: 0.08, release: 0.08 }, circular: true },
   bassPitch: { label: 'bass pitch', src: { derived: 'bassPitch' }, env: { attack: 0.08, release: 0.08 } },
 };
 
@@ -83,7 +86,7 @@ export const MAPPINGS = [
   { src: 'snare', target: 'paletteKick', amount: 1 },
   { src: 'intensity', target: 'spin', amount: 1 },
   { src: 'hat', target: 'juliaJitter', amount: 1 },
-  { src: 'chroma', target: 'palettePos', amount: 1 },
+  { src: 'chromaPeak', target: 'palettePos', amount: 1 },
   { src: 'bassPitch', target: 'xformRotate', amount: 1 },
 ];
 
@@ -100,7 +103,7 @@ export function resolve(row, i = 0) {
     curve: row.curve ?? env.curve,
     attack: row.attack ?? env.attack,
     release: row.release ?? env.release,
-    out: row.out ?? T.out,
+    out: row.out ?? S.out ?? T.out,
     target: row.target,
     neutral: T.neutral,
     amount: row.amount ?? 1,
@@ -110,8 +113,9 @@ export function resolve(row, i = 0) {
 
 export const MAP_DEFAULTS = {
   lookahead: 0.03,        // s: impulses lead the audio a little (output latency + perception)
-  paletteRange: 0.35,     // how far chroma moves the palette (fraction of the gradient)
   bassConf: 0.5,          // pYIN voiced-probability gate
+  chromaSwitch: 0.85,     // chroma peak moves to a new pitch class only once the held one drops below this x the strongest
+  chromaFloor: 0.2,       // ...and only if the strongest is at least this (quieter frames hold the last note)
   bassLoHz: 40, bassOctaves: 2,   // bassPitch 0..1 spans this range (log)
   maxGain: 0.98,          // affine contraction clamp
 };
@@ -138,6 +142,7 @@ export class Mapper {
     this.env = new Map();        // mapping id -> envelope value (or [cos, sin] for circular)
     this.tPrev = null;
     this.bassHold = 0.5;
+    this.chromaHold = -1;
     this.spinPhase = this.spinPhase ?? 0;
     this.signals = {};           // last raw source values, for the debug overlay
     this.mods = {};
@@ -159,6 +164,16 @@ export class Mapper {
         y += w * Math.sin((k / 12) * TAU);
       }
       return ((Math.atan2(y, x) / TAU) + 1) % 1;
+    }
+    if (src.derived === 'chromaPeak') {
+      // the strongest pitch class (k / 12), with hysteresis so near-ties don't flicker
+      const c = tl.sampleChroma(t, this.chroma);
+      let best = 0;
+      for (let k = 1; k < 12; k++) if (c[k] > c[best]) best = k;
+      const held = this.chromaHold;
+      if (held < 0) this.chromaHold = best;
+      else if (c[best] >= this.opts.chromaFloor && c[held] < this.opts.chromaSwitch * c[best]) this.chromaHold = best;
+      return this.chromaHold / 12;
     }
     if (src.derived === 'bassPitch') {
       // confidence-gated, holds the last confident value
@@ -189,7 +204,7 @@ export class Mapper {
   update(t) {
     let dt = this.tPrev == null ? 0 : t - this.tPrev;
     const seeked = this.tPrev == null || dt < -0.05 || dt > 0.5;
-    if (seeked) { dt = 0; this.bassHold = this.lastConfidentBass(t); }
+    if (seeked) { dt = 0; this.bassHold = this.lastConfidentBass(t); this.chromaHold = -1; }
     dt = Math.max(0, Math.min(dt, 0.1));
     this.tPrev = t;
 
@@ -262,6 +277,6 @@ export function applyMods(base, mods, opts = MAP_DEFAULTS) {
   // keep the shape from blowing up
   for (const x of xs) x.affine = clampContractive(x.affine, opts.maxGain ?? 0.98);
 
-  const paletteOffset = (mods.paletteKick ?? 0) + (mods.palettePos ?? 0) * (opts.paletteRange ?? 0.35);
+  const paletteOffset = (mods.paletteKick ?? 0) + (mods.palettePos ?? 0);
   return { flame: f, itersScale: Math.min(4, Math.max(0.05, mods.iters ?? 1)), paletteOffset };
 }
