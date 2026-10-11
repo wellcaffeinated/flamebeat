@@ -369,3 +369,5 @@ Libraries: librosa, numpy, scipy, pyloudnorm, basic-pitch, matplotlib.
   Default iterations 16 -> **178 per chain per frame** (65536 x 178 x 60 fps
   ~ 700 M iter/s, user request); not verified on a real GPU, and headless
   checks pass `iters` explicitly (SwiftShader does ~4 M iter/s).
+- 2026-10-11: intensity -> spin range 0.12..10.9 rad/s (exponential); after
+  the spin envelope: 0.12..10.0 rad/s over Thirteen TeV (first 30 s up to 2.4).
